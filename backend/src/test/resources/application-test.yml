@@ -1,0 +1,25 @@
+spring:
+  # La datasource est fournie dynamiquement par Testcontainers (cf. AbstractPostgresIT).
+  jpa:
+    hibernate:
+      # Hibernate genere le schema dans le conteneur Postgres a chaque contexte de test
+      # -> valide directement le mapping des entites contre un vrai PostgreSQL.
+      ddl-auto: create-drop
+    open-in-view: false
+
+app:
+  seed:
+    admin-email: admin@smartboutique.com
+    admin-password: Admin@123
+    admin-name: Administrateur
+  jwt:
+    secret: test-secret-key-test-secret-key-test-secret-key-0123456789
+    expiration-ms: 3600000
+  password-reset:
+    expiration-ms: 1800000
+  cors:
+    allowed-origins: http://localhost:5173
+
+logging:
+  level:
+    com.smartboutique: WARN

@@ -1,0 +1,71 @@
+# ===========================================================================
+# Smart Boutique - orchestration de production (postgres + backend + web/nginx).
+# Lancement : cp .env.example .env  (remplir les secrets)  puis  docker compose up --build
+# Le mobile n'est PAS conteneurise (artefact Expo/EAS, cf. mobile/README.md).
+# ===========================================================================
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: sb-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smart_boutique}
+      POSTGRES_USER: ${POSTGRES_USER:-smartboutique}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+    ports:
+      # Expose sur le port host 5544 pour coexister avec un PostgreSQL local sur 5432.
+      # (En interne, les conteneurs joignent toujours "postgres:5432".)
+      - "5544:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smartboutique} -d ${POSTGRES_DB:-smart_boutique}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: sb-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-smart_boutique}
+      DB_USERNAME: ${POSTGRES_USER:-smartboutique}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis (>= 32 caracteres)}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@smartboutique.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD requis}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrateur}
+    # Pas de port publie : le backend n'est joignable que via nginx (proxy /api, /uploads).
+    expose:
+      - "8080"
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  web:
+    build: ./web
+    container_name: sb-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Web servi par nginx. 8090 sur l'hote pour eviter les conflits ; 80/443 en prod reelle.
+      - "8090:80"
+
+volumes:
+  pg_data:
+  uploads_data:

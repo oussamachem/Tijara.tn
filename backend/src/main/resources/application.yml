@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: smart-boutique
+
+  datasource:
+    # Toute la configuration sensible est externalisee via variables d'environnement (.env / docker-compose).
+    # Defaut dev : conteneur PostgreSQL Docker expose sur le port host 5544
+    # (cf. docker-compose). Adapter si vous utilisez un PostgreSQL local sur 5432.
+    url: ${DB_URL:jdbc:postgresql://localhost:5544/smart_boutique}
+    username: ${DB_USERNAME:smartboutique}
+    password: ${DB_PASSWORD:smartboutique}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # En developpement on laisse Hibernate creer/mettre a jour le schema a partir des entites.
+      # En production : ddl-auto=validate + Flyway (cf. application-prod.yml).
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    show-sql: ${JPA_SHOW_SQL:false}
+
+  # Flyway desactive en dev/test (le schema vient de ddl-auto). Active en prod uniquement.
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+
+  servlet:
+    multipart:
+      # Upload d'images produits (Phase 3).
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# Parametres applicatifs propres a Smart Boutique.
+app:
+  # Compte administrateur par defaut cree au premier demarrage (seed).
+  seed:
+    admin-email: ${ADMIN_EMAIL:admin@smartboutique.com}
+    admin-password: ${ADMIN_PASSWORD:Admin@123}
+    admin-name: ${ADMIN_NAME:Administrateur}
+  # Secret JWT et duree de vie du token (access token).
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production-this-is-a-very-long-dev-secret-key-0123456789}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  # Duree de validite d'un token de reinitialisation de mot de passe (defaut 30 min).
+  password-reset:
+    expiration-ms: ${PASSWORD_RESET_EXPIRATION_MS:1800000}
+  # Origines autorisees pour le CORS (web + mobile), separees par des virgules.
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:19006}
+  # Active le seed des donnees de demo (categories d'exemple). Desactive en prod.
+  seed-demo-data: ${SEED_DEMO_DATA:true}
+  # Dossier de stockage des images uploadees (Phase 3).
+  uploads-dir: ${UPLOADS_DIR:uploads}
+
+# Actuator : on n'expose que health (utilise par le healthcheck Docker) et info.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.smartboutique: ${LOG_LEVEL:INFO}
