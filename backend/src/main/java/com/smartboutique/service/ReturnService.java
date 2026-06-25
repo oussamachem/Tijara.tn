@@ -3,13 +3,13 @@ package com.smartboutique.service;
 import com.smartboutique.dto.PageResponse;
 import com.smartboutique.dto.ReturnRequest;
 import com.smartboutique.dto.ReturnResponse;
-import com.smartboutique.entity.Product;
+import com.smartboutique.entity.ProductVariant;
 import com.smartboutique.entity.Return;
 import com.smartboutique.entity.Sale;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.ReturnMapper;
-import com.smartboutique.repository.ProductRepository;
+import com.smartboutique.repository.ProductVariantRepository;
 import com.smartboutique.repository.ReturnRepository;
 import com.smartboutique.repository.SaleItemRepository;
 import com.smartboutique.repository.SaleRepository;
@@ -39,24 +39,24 @@ public class ReturnService {
     private final ReturnRepository returnRepository;
     private final SaleRepository saleRepository;
     private final SaleItemRepository saleItemRepository;
-    private final ProductRepository productRepository;
+    private final ProductVariantRepository variantRepository;
     private final ReturnMapper returnMapper;
 
     @Transactional
     public ReturnResponse createReturn(ReturnRequest request) {
         Sale sale = saleRepository.findById(request.saleId())
                 .orElseThrow(() -> new ResourceNotFoundException("Vente", request.saleId()));
-        Product product = productRepository.findById(request.productId())
-                .orElseThrow(() -> new ResourceNotFoundException("Produit", request.productId()));
+        ProductVariant variant = variantRepository.findById(request.variantId())
+                .orElseThrow(() -> new ResourceNotFoundException("Variante", request.variantId()));
 
-        int sold = saleItemRepository.sumQuantityBySaleAndProduct(sale.getId(), product.getId());
+        int sold = saleItemRepository.sumQuantityBySaleAndVariant(sale.getId(), variant.getId());
         if (sold == 0) {
             throw new BusinessException(
-                    "Ce produit ne fait pas partie de la vente #" + sale.getId(),
+                    "Cette variante ne fait pas partie de la vente #" + sale.getId(),
                     HttpStatus.CONFLICT);
         }
 
-        int alreadyReturned = returnRepository.sumReturnedBySaleAndProduct(sale.getId(), product.getId());
+        int alreadyReturned = returnRepository.sumReturnedBySaleAndVariant(sale.getId(), variant.getId());
         int returnable = sold - alreadyReturned;
         if (request.quantity() > returnable) {
             throw new BusinessException(
@@ -68,17 +68,17 @@ public class ReturnService {
 
         Return ret = Return.builder()
                 .sale(sale)
-                .product(product)
+                .variant(variant)
                 .quantity(request.quantity())
                 .reason(request.reason())
                 .build();
         ret = returnRepository.save(ret);
 
-        // Reintegration du stock.
-        productRepository.incrementStock(product.getId(), request.quantity());
+        // Reintegration du stock de la variante.
+        variantRepository.incrementStock(variant.getId(), request.quantity());
 
-        log.info("Retour id={} enregistre : produit {} x{} sur vente #{} (motif: {})",
-                ret.getId(), product.getReference(), request.quantity(), sale.getId(), request.reason());
+        log.info("Retour id={} enregistre : variante {} x{} sur vente #{} (motif: {})",
+                ret.getId(), variant.getReference(), request.quantity(), sale.getId(), request.reason());
         return returnMapper.toResponse(ret);
     }
 

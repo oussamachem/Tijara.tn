@@ -1,16 +1,18 @@
 package com.smartboutique.service;
 
-import com.smartboutique.dto.PageResponse;
-import com.smartboutique.dto.ProductRequest;
-import com.smartboutique.dto.ProductResponse;
+import com.smartboutique.dto.*;
 import com.smartboutique.entity.Category;
+import com.smartboutique.entity.Color;
 import com.smartboutique.entity.Product;
+import com.smartboutique.entity.ProductVariant;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.DuplicateResourceException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.ProductMapper;
 import com.smartboutique.repository.CategoryRepository;
+import com.smartboutique.repository.ColorRepository;
 import com.smartboutique.repository.ProductRepository;
+import com.smartboutique.repository.SaleItemRepository;
 import com.smartboutique.repository.specification.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,11 +24,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
- * Gestion des produits : CRUD, recherche paginee, generation du QR Code et image associee.
+ * Gestion des produits (modeles) et de leurs variantes a la creation. Le stock vit au grain
+ * variante (cf. {@link VariantService}). Prix au niveau produit.
  */
 @Slf4j
 @Service
@@ -35,8 +40,10 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ColorRepository colorRepository;
+    private final SaleItemRepository saleItemRepository;
     private final ProductMapper productMapper;
-    private final QrCodeService qrCodeService;
+    private final VariantSupport variantSupport;
     private final FileStorageService fileStorageService;
 
     // -------------------------------- Lecture / recherche --------------------------------
@@ -47,7 +54,6 @@ public class ProductService {
                 .where(ProductSpecifications.nameContains(name))
                 .and(ProductSpecifications.referenceContains(reference))
                 .and(ProductSpecifications.hasCategory(categoryId));
-
         Page<Product> page = productRepository.findAll(spec, pageable);
         List<ProductResponse> content = page.getContent().stream().map(productMapper::toResponse).toList();
         return PageResponse.of(page, content);
@@ -58,153 +64,115 @@ public class ProductService {
         return productMapper.toResponse(getProduct(id));
     }
 
-    /** Recherche un produit par le contenu de son QR Code (la reference) — pour la vente par scan. */
-    @Transactional(readOnly = true)
-    public ProductResponse findByQrContent(String content) {
-        Product product = productRepository.findByQrCode(content)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Aucun produit ne correspond a ce QR Code (" + content + ")"));
-        return productMapper.toResponse(product);
-    }
-
-    /** Genere l'image PNG du QR Code du produit (a partir de son contenu encode). */
-    @Transactional(readOnly = true)
-    public byte[] generateQrPng(Long id) {
-        Product product = getProduct(id);
-        return qrCodeService.generatePng(product.getQrCode());
-    }
-
-    // -------------------------------------- Ecriture -------------------------------------
+    // ------------------------------------ Creation ------------------------------------
 
     @Transactional
     public ProductResponse create(ProductRequest request) {
         if (productRepository.existsByReference(request.reference())) {
             throw new DuplicateResourceException("Un produit avec cette reference existe deja");
         }
+        Category category = categoryRepository.findById(request.categoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Categorie", request.categoryId()));
+
         Product product = Product.builder()
                 .reference(request.reference())
                 .name(request.name())
                 .description(request.description())
-                .category(resolveCategory(request.categoryId()))
-                .size(request.size())
-                .color(request.color())
+                .category(category)
                 .purchasePrice(request.purchasePrice())
                 .salePrice(request.salePrice())
-                .quantity(request.quantity())
-                .seuilAlerte(request.seuilAlerte())
-                // QR Code : on encode la reference (stable et signifiante) plutot que l'id auto-incremente.
-                .qrCode(request.reference())
                 .build();
 
+        Set<String> seenCells = new HashSet<>();   // (colorId|size) : doublons dans la matrice
+        Set<String> seenRefs = new HashSet<>();     // references variantes du lot
+        for (VariantCellRequest cell : request.variants()) {
+            String cellKey = cell.colorId() + "|" + cell.size();
+            if (!seenCells.add(cellKey)) {
+                throw new BusinessException(
+                        "Variante en double dans la matrice (couleur + taille identiques)", HttpStatus.BAD_REQUEST);
+            }
+            Color color = colorRepository.findById(cell.colorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Couleur", cell.colorId()));
+            variantSupport.validateSize(category, cell.size());
+
+            String ref = variantSupport.buildVariantReference(request.reference(), cell.size(), color.getName());
+            if (!seenRefs.add(ref) || productRepository.existsByReference(ref)) {
+                throw new DuplicateResourceException("Reference de variante en conflit : " + ref);
+            }
+            product.addVariant(ProductVariant.builder()
+                    .color(color)
+                    .size(cell.size())
+                    .quantity(cell.quantity())
+                    .seuilAlerte(cell.seuilAlerte() != null ? cell.seuilAlerte() : 0)
+                    .reference(ref)
+                    .qrCode(ref)
+                    .build());
+        }
+
         product = productRepository.save(product);
-        log.info("Produit cree : {} (reference={}, qrCode={})",
-                product.getName(), product.getReference(), product.getQrCode());
+        log.info("Produit cree : {} ({} variante(s))", product.getReference(), product.getVariants().size());
         return productMapper.toResponse(product);
     }
 
+    // -------------------------------- Mise a jour entete --------------------------------
+
     @Transactional
-    public ProductResponse update(Long id, ProductRequest request) {
+    public ProductResponse updateHeader(Long id, ProductHeaderRequest request) {
         Product product = getProduct(id);
 
         boolean referenceChanged = !product.getReference().equalsIgnoreCase(request.reference());
         if (referenceChanged && productRepository.existsByReference(request.reference())) {
             throw new DuplicateResourceException("Un produit avec cette reference existe deja");
         }
-
-        // Tracabilite : journalise toute modification de prix (action sensible).
         if (!Objects.equals(product.getSalePrice(), request.salePrice())
                 || !Objects.equals(product.getPurchasePrice(), request.purchasePrice())) {
-            log.warn("[AUDIT] Modification de prix du produit id={} : achat {}->{}, vente {}->{}",
-                    id, product.getPurchasePrice(), request.purchasePrice(),
-                    product.getSalePrice(), request.salePrice());
+            log.warn("[AUDIT] Modification de prix du produit id={}", id);
         }
+
+        Category category = categoryRepository.findById(request.categoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Categorie", request.categoryId()));
 
         product.setReference(request.reference());
         product.setName(request.name());
         product.setDescription(request.description());
-        product.setCategory(resolveCategory(request.categoryId()));
-        product.setSize(request.size());
-        product.setColor(request.color());
+        product.setCategory(category);
         product.setPurchasePrice(request.purchasePrice());
         product.setSalePrice(request.salePrice());
-        product.setQuantity(request.quantity());
-        product.setSeuilAlerte(request.seuilAlerte());
-        // Le QR Code suit la reference si celle-ci change.
-        if (referenceChanged) {
-            product.setQrCode(request.reference());
-        }
 
+        // La reference produit change -> on regenere les references/QR des variantes pour rester
+        // coherent (REF-SIZE-COLOR). Implique une reimpression des etiquettes QR.
+        if (referenceChanged) {
+            for (ProductVariant v : product.getVariants()) {
+                String newRef = variantSupport.buildVariantReference(
+                        request.reference(), v.getSize(), v.getColor().getName());
+                v.setReference(newRef);
+                v.setQrCode(newRef);
+            }
+        }
         return productMapper.toResponse(productRepository.save(product));
     }
 
     @Transactional
     public void delete(Long id) {
         Product product = getProduct(id);
+        if (saleItemRepository.existsByVariant_Product_Id(id)) {
+            throw new BusinessException(
+                    "Impossible de supprimer un produit deja vendu (historique des ventes)", HttpStatus.CONFLICT);
+        }
         productRepository.delete(product);
-        log.warn("[AUDIT] Produit supprime : {} (id={}, reference={})",
-                product.getName(), id, product.getReference());
+        log.warn("[AUDIT] Produit supprime : {} (id={})", product.getReference(), id);
     }
 
-    /** Associe une image uploadee au produit. */
+    /** Associe une image uploadee au produit (image au niveau produit). */
     @Transactional
     public ProductResponse uploadImage(Long id, MultipartFile file) {
         Product product = getProduct(id);
-        String url = fileStorageService.store(file);
-        product.setImageUrl(url);
+        product.setImageUrl(fileStorageService.store(file));
         return productMapper.toResponse(productRepository.save(product));
     }
-
-    // ---------------------------------------- Stock --------------------------------------
-
-    /** Definit la quantite absolue en stock (operation d'inventaire ADMIN). */
-    @Transactional
-    public ProductResponse setStock(Long id, int quantity) {
-        Product product = getProduct(id);
-        int before = product.getQuantity();
-        product.setQuantity(quantity);
-        Product saved = productRepository.save(product);
-        log.info("[AUDIT] Stock du produit id={} fixe : {} -> {}", id, before, quantity);
-        return productMapper.toResponse(saved);
-    }
-
-    /** Ajuste le stock d'une valeur relative ; refuse un resultat negatif. */
-    @Transactional
-    public ProductResponse adjustStock(Long id, int delta) {
-        Product product = getProduct(id);
-        int result = product.getQuantity() + delta;
-        if (result < 0) {
-            throw new BusinessException(
-                    "Ajustement impossible : le stock deviendrait negatif (actuel "
-                            + product.getQuantity() + ", variation " + delta + ")",
-                    HttpStatus.BAD_REQUEST);
-        }
-        product.setQuantity(result);
-        Product saved = productRepository.save(product);
-        log.info("[AUDIT] Stock du produit id={} ajuste de {} : {} -> {}",
-                id, delta, result - delta, result);
-        return productMapper.toResponse(saved);
-    }
-
-    /** Produits en rupture (quantite = 0) ou sous le seuil d'alerte (quantite <= seuil). */
-    @Transactional(readOnly = true)
-    public List<ProductResponse> findLowStock() {
-        return productRepository.findAll(ProductSpecifications.lowStockOnly()).stream()
-                .map(productMapper::toResponse)
-                .toList();
-    }
-
-    // --------------------------------------- Helpers -------------------------------------
 
     private Product getProduct(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produit", id));
-    }
-
-    private Category resolveCategory(Long categoryId) {
-        if (categoryId == null) {
-            return null;
-        }
-        return categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Categorie", categoryId));
     }
 }

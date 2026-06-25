@@ -18,8 +18,12 @@ import java.util.Optional;
 
 public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificationExecutor<Sale> {
 
-    /** Detail d'une vente sans N+1 : charge vendeur, lignes et produits en une requete. */
-    @EntityGraph(attributePaths = {"seller", "items", "items.product"})
+    /**
+     * Detail d'une vente sans N+1 : charge vendeur et lignes en une requete. Les attributs
+     * variante (reference, produit, couleur, taille) sont denormalises sur les lignes -> pas
+     * besoin de charger les variantes pour l'affichage.
+     */
+    @EntityGraph(attributePaths = {"seller", "items"})
     @Query("SELECT s FROM Sale s WHERE s.id = :id")
     Optional<Sale> findDetailById(@Param("id") Long id);
 
@@ -31,11 +35,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificat
     @Query("SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s WHERE s.saleDate >= :start AND s.saleDate < :end")
     BigDecimal sumTotalAmountBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    /** Meilleures ventes par quantite (GROUP BY en SQL, top N via Pageable). */
+    /** Meilleures ventes par quantite, agregees au PRODUIT (roll-up des variantes). */
     @Query("SELECT new com.smartboutique.dto.TopProduct(" +
-            "si.product.id, si.product.reference, si.product.name, SUM(si.quantity), SUM(si.totalPrice)) " +
+            "si.variant.product.id, si.variant.product.reference, si.variant.product.name, " +
+            "SUM(si.quantity), SUM(si.totalPrice)) " +
             "FROM SaleItem si " +
-            "GROUP BY si.product.id, si.product.reference, si.product.name " +
+            "GROUP BY si.variant.product.id, si.variant.product.reference, si.variant.product.name " +
             "ORDER BY SUM(si.quantity) DESC")
     List<TopProduct> findTopSellingProducts(Pageable pageable);
 

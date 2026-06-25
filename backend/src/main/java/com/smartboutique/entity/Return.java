@@ -22,14 +22,14 @@ public class Return {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Vente d'origine du produit retourne. */
+    /** Vente d'origine de la variante retournee. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "variant_id", nullable = false)
+    private ProductVariant variant;
 
     @Column(nullable = false)
     private Integer quantity;

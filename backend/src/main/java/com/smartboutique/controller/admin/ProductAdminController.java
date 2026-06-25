@@ -1,10 +1,12 @@
 package com.smartboutique.controller.admin;
 
+import com.smartboutique.dto.AddVariantRequest;
+import com.smartboutique.dto.ProductHeaderRequest;
 import com.smartboutique.dto.ProductRequest;
 import com.smartboutique.dto.ProductResponse;
-import com.smartboutique.dto.StockAdjustRequest;
-import com.smartboutique.dto.StockSetRequest;
+import com.smartboutique.dto.VariantResponse;
 import com.smartboutique.service.ProductService;
+import com.smartboutique.service.VariantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,8 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * CRUD des produits + upload d'image, reserve a l'ADMIN (route sous /api/admin/**).
- * Le QR Code est genere automatiquement a la creation.
+ * CRUD des produits (entete + matrice de variantes) + upload d'image, reserve a l'ADMIN.
+ * Le QR Code est genere automatiquement par variante a la creation.
  */
 @RestController
 @RequestMapping("/api/admin/products")
@@ -22,16 +24,19 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProductAdminController {
 
     private final ProductService productService;
+    private final VariantService variantService;
 
+    /** Creation : entete + liste de variantes (matrice couleur x taille developpee). */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ProductResponse create(@Valid @RequestBody ProductRequest request) {
         return productService.create(request);
     }
 
+    /** Mise a jour de l'entete (les variantes se gerent via les endpoints dedies). */
     @PutMapping("/{id}")
-    public ProductResponse update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
-        return productService.update(id, request);
+    public ProductResponse update(@PathVariable Long id, @Valid @RequestBody ProductHeaderRequest request) {
+        return productService.updateHeader(id, request);
     }
 
     @DeleteMapping("/{id}")
@@ -46,15 +51,10 @@ public class ProductAdminController {
         return productService.uploadImage(id, file);
     }
 
-    /** Definit la quantite absolue en stock (inventaire). */
-    @PatchMapping("/{id}/stock")
-    public ProductResponse setStock(@PathVariable Long id, @Valid @RequestBody StockSetRequest request) {
-        return productService.setStock(id, request.quantity());
-    }
-
-    /** Ajuste le stock d'une valeur relative (entree/sortie manuelle). */
-    @PatchMapping("/{id}/stock/adjust")
-    public ProductResponse adjustStock(@PathVariable Long id, @Valid @RequestBody StockAdjustRequest request) {
-        return productService.adjustStock(id, request.delta());
+    /** Ajoute une variante (declinaison) a un produit existant. */
+    @PostMapping("/{id}/variants")
+    @ResponseStatus(HttpStatus.CREATED)
+    public VariantResponse addVariant(@PathVariable Long id, @Valid @RequestBody AddVariantRequest request) {
+        return variantService.addVariant(id, request);
     }
 }

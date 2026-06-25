@@ -1,19 +1,50 @@
 package com.smartboutique.mapper;
 
 import com.smartboutique.dto.ProductResponse;
+import com.smartboutique.dto.VariantResponse;
 import com.smartboutique.entity.Category;
 import com.smartboutique.entity.Product;
+import com.smartboutique.entity.ProductVariant;
 import org.springframework.stereotype.Component;
 
-/** Conversion entre l'entite Product et ses DTO. */
+import java.util.Comparator;
+import java.util.List;
+
+/** Conversion entre Product/ProductVariant et leurs DTO. */
 @Component
 public class ProductMapper {
 
+    public boolean isLowStock(ProductVariant v) {
+        return v.getQuantity() != null && v.getSeuilAlerte() != null
+                && v.getQuantity() <= v.getSeuilAlerte();
+    }
+
+    public VariantResponse toVariantResponse(ProductVariant v) {
+        return new VariantResponse(
+                v.getId(),
+                v.getColor() != null ? v.getColor().getId() : null,
+                v.getColor() != null ? v.getColor().getName() : null,
+                v.getColor() != null ? v.getColor().getHex() : null,
+                v.getSize(),
+                v.getQuantity(),
+                v.getSeuilAlerte(),
+                isLowStock(v),
+                v.getReference(),
+                v.getQrCode()
+        );
+    }
+
     public ProductResponse toResponse(Product product) {
         Category category = product.getCategory();
-        boolean lowStock = product.getQuantity() != null
-                && product.getSeuilAlerte() != null
-                && product.getQuantity() <= product.getSeuilAlerte();
+        List<ProductVariant> variants = product.getVariants();
+
+        List<VariantResponse> variantDtos = variants.stream()
+                .sorted(Comparator.comparing(ProductVariant::getReference))
+                .map(this::toVariantResponse)
+                .toList();
+
+        int totalStock = variants.stream().mapToInt(v -> v.getQuantity() == null ? 0 : v.getQuantity()).sum();
+        boolean anyLow = variants.stream().anyMatch(this::isLowStock);
 
         return new ProductResponse(
                 product.getId(),
@@ -22,16 +53,13 @@ public class ProductMapper {
                 product.getDescription(),
                 category != null ? category.getId() : null,
                 category != null ? category.getName() : null,
-                product.getSize(),
-                product.getColor(),
                 product.getPurchasePrice(),
                 product.getSalePrice(),
-                product.getQuantity(),
-                product.getSeuilAlerte(),
-                lowStock,
                 product.getImageUrl(),
-                product.getQrCode(),
-                product.getCreatedAt()
+                product.getCreatedAt(),
+                totalStock,
+                anyLow,
+                variantDtos
         );
     }
 }

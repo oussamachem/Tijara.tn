@@ -2,6 +2,7 @@ package com.smartboutique.service;
 
 import com.smartboutique.dto.CategoryRequest;
 import com.smartboutique.dto.CategoryResponse;
+import com.smartboutique.dto.SizeOptionsResponse;
 import com.smartboutique.entity.Category;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.DuplicateResourceException;
@@ -39,6 +40,13 @@ public class CategoryService {
         return categoryMapper.toResponse(getCategory(id));
     }
 
+    /** Tailles autorisees pour la categorie (alimente le formulaire de creation web). */
+    @Transactional(readOnly = true)
+    public SizeOptionsResponse sizeOptions(Long id) {
+        Category category = getCategory(id);
+        return new SizeOptionsResponse(category.getSizeType(), category.getSizeType().allowedSizes());
+    }
+
     @Transactional
     public CategoryResponse create(CategoryRequest request) {
         if (categoryRepository.existsByName(request.name())) {
@@ -47,6 +55,7 @@ public class CategoryService {
         Category category = Category.builder()
                 .name(request.name())
                 .description(request.description())
+                .sizeType(request.sizeType())
                 .build();
         return categoryMapper.toResponse(categoryRepository.save(category));
     }
@@ -61,6 +70,7 @@ public class CategoryService {
         }
         category.setName(request.name());
         category.setDescription(request.description());
+        category.setSizeType(request.sizeType());
         return categoryMapper.toResponse(categoryRepository.save(category));
     }
 

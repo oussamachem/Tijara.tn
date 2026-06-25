@@ -2,12 +2,14 @@ package com.smartboutique.dto;
 
 import java.math.BigDecimal;
 
-/** Ligne d'une vente (prix figes au moment de la vente). */
+/** Ligne d'une vente (attributs figes au moment de la vente). */
 public record SaleItemResponse(
         Long id,
-        Long productId,
-        String productReference,
+        Long variantId,
+        String variantReference,
         String productName,
+        String colorName,
+        String size,
         Integer quantity,
         BigDecimal unitPrice,
         BigDecimal totalPrice

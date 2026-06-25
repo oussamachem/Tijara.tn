@@ -3,6 +3,7 @@ package com.smartboutique.service;
 import com.smartboutique.dto.DashboardResponse;
 import com.smartboutique.dto.TopProduct;
 import com.smartboutique.repository.ProductRepository;
+import com.smartboutique.repository.ProductVariantRepository;
 import com.smartboutique.repository.ReturnRepository;
 import com.smartboutique.repository.SaleRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.List;
 public class DashboardService {
 
     private final ProductRepository productRepository;
+    private final ProductVariantRepository variantRepository;
     private final SaleRepository saleRepository;
     private final ReturnRepository returnRepository;
 
@@ -39,8 +41,9 @@ public class DashboardService {
         LocalDateTime end = today.plusDays(1).atStartOfDay();
 
         long totalProducts = productRepository.count();
-        long totalStock = productRepository.sumAllQuantities();
-        long lowStockCount = productRepository.countLowStock();
+        long totalStock = variantRepository.sumAllQuantities();
+        long lowStockVariants = variantRepository.countLowStockVariants();
+        long lowStockProducts = variantRepository.countProductsWithLowStock();
 
         long todaySalesCount = saleRepository.countBySaleDateBetween(start, end);
         BigDecimal grossRevenue = saleRepository.sumTotalAmountBetween(start, end);
@@ -52,7 +55,7 @@ public class DashboardService {
                 saleRepository.findTopSellingProducts(PageRequest.of(0, topProductsLimit));
 
         return new DashboardResponse(
-                totalProducts, totalStock, lowStockCount,
+                totalProducts, totalStock, lowStockVariants, lowStockProducts,
                 todaySalesCount, grossRevenue, returnsValue, netRevenue,
                 topProducts);
     }

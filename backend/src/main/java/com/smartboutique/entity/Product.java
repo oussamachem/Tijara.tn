@@ -6,9 +6,12 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Article vendu en boutique.
+ * Modele d'article (ex. « chemise »). Le stock et le QR Code vivent au niveau des
+ * {@link ProductVariant} (couleur x taille). Le prix reste au niveau produit (cf. decision Phase 9).
  */
 @Entity
 @Table(name = "products")
@@ -23,7 +26,7 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Reference commerciale unique (sert aussi de contenu encode dans le QR Code). */
+    /** Reference de base du modele (les variantes en derivent : REF-SIZE-COLOR). */
     @Column(nullable = false, unique = true)
     private String reference;
 
@@ -33,14 +36,9 @@ public class Product {
     @Column(length = 1000)
     private String description;
 
-    /** Categorie du produit. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
-
-    private String size;
-
-    private String color;
 
     @Column(name = "purchase_price", precision = 12, scale = 2)
     private BigDecimal purchasePrice;
@@ -48,23 +46,20 @@ public class Product {
     @Column(name = "sale_price", precision = 12, scale = 2)
     private BigDecimal salePrice;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private Integer quantity = 0;
-
-    /** Seuil en dessous duquel le produit est considere en alerte de stock. */
-    @Column(name = "seuil_alerte", nullable = false)
-    @Builder.Default
-    private Integer seuilAlerte = 0;
-
     @Column(name = "image_url")
     private String imageUrl;
-
-    /** Contenu textuel encode dans le QR Code (genere a la creation - Phase 3). */
-    @Column(name = "qr_code", unique = true)
-    private String qrCode;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Declinaisons du produit (couleur x taille). Un produit a TOUJOURS au moins une variante. */
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductVariant> variants = new ArrayList<>();
+
+    public void addVariant(ProductVariant variant) {
+        variants.add(variant);
+        variant.setProduct(this);
+    }
 }

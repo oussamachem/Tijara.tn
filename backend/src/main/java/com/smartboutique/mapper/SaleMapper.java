@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Conversion des ventes vers leurs DTO. */
+/** Conversion des ventes vers leurs DTO (attributs variante figes a la vente). */
 @Component
 public class SaleMapper {
 
@@ -35,9 +35,11 @@ public class SaleMapper {
     private SaleItemResponse toItemResponse(SaleItem item) {
         return new SaleItemResponse(
                 item.getId(),
-                item.getProduct().getId(),
-                item.getProduct().getReference(),
-                item.getProduct().getName(),
+                item.getVariant() != null ? item.getVariant().getId() : null,
+                item.getVariantReference(),
+                item.getProductName(),
+                item.getColorName(),
+                item.getSize(),
                 item.getQuantity(),
                 item.getUnitPrice(),
                 item.getTotalPrice()

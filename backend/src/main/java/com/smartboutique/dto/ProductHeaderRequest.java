@@ -1,16 +1,11 @@
 package com.smartboutique.dto;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
-import java.util.List;
 
-/**
- * Creation / modification de l'entete d'un produit + sa liste de variantes (matrice
- * couleur x taille deja developpee en cellules). Prix au niveau produit.
- */
-public record ProductRequest(
+/** Mise a jour de l'entete d'un produit (les variantes sont gerees a part). */
+public record ProductHeaderRequest(
         @NotBlank(message = "La reference est obligatoire")
         String reference,
 
@@ -29,10 +24,6 @@ public record ProductRequest(
 
         @NotNull(message = "Le prix de vente est obligatoire")
         @Positive(message = "Le prix de vente doit etre positif")
-        BigDecimal salePrice,
-
-        @NotEmpty(message = "Un produit doit avoir au moins une variante")
-        @Valid
-        List<VariantCellRequest> variants
+        BigDecimal salePrice
 ) {
 }

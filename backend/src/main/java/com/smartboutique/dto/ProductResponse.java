@@ -2,8 +2,9 @@ package com.smartboutique.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
-/** Representation d'un produit. */
+/** Representation d'un produit (modele) avec ses variantes et son stock total. */
 public record ProductResponse(
         Long id,
         String reference,
@@ -11,15 +12,12 @@ public record ProductResponse(
         String description,
         Long categoryId,
         String categoryName,
-        String size,
-        String color,
         BigDecimal purchasePrice,
         BigDecimal salePrice,
-        Integer quantity,
-        Integer seuilAlerte,
-        boolean lowStock,
         String imageUrl,
-        String qrCode,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Integer totalStock,
+        boolean lowStock,
+        List<VariantResponse> variants
 ) {
 }

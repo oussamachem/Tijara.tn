@@ -5,14 +5,14 @@ import com.smartboutique.dto.SaleItemRequest;
 import com.smartboutique.dto.SaleRequest;
 import com.smartboutique.dto.SaleResponse;
 import com.smartboutique.dto.SaleSummaryResponse;
-import com.smartboutique.entity.Product;
+import com.smartboutique.entity.ProductVariant;
 import com.smartboutique.entity.Sale;
 import com.smartboutique.entity.SaleItem;
 import com.smartboutique.entity.User;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.SaleMapper;
-import com.smartboutique.repository.ProductRepository;
+import com.smartboutique.repository.ProductVariantRepository;
 import com.smartboutique.repository.SaleRepository;
 import com.smartboutique.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,22 +30,19 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Gestion des ventes.
+ * Gestion des ventes (au grain VARIANTE depuis la Phase 9).
  *
- * <p><b>Transaction (tout ou rien)</b> : creation de la vente, des lignes et decrement du stock
- * dans une seule transaction. Toute erreur (stock insuffisant, produit introuvable, remise invalide)
- * provoque un rollback complet.</p>
+ * <p><b>Transaction (tout ou rien)</b> : vente + lignes + decrement du stock VARIANTE dans une
+ * seule transaction ; toute erreur provoque un rollback complet.</p>
  *
- * <p><b>Concurrence</b> : le stock est decremente via une mise a jour atomique conditionnelle
- * {@code UPDATE products SET quantity = quantity - :q WHERE id = :id AND quantity >= :q}. Si 0 ligne
- * est affectee, le stock est insuffisant (eventuellement a cause d'une vente concurrente) et on leve
- * une 409. Ce choix evite tout survente sans maintenir de verrou applicatif long ; l'atomicite est
- * garantie par la BDD. Les lignes sont traitees triees par id produit pour limiter les interblocages.</p>
+ * <p><b>Concurrence</b> : decrement atomique conditionnel sur {@code product_variant.quantity}
+ * ({@code UPDATE ... WHERE quantity >= :q}). 0 ligne affectee => stock insuffisant (419/409),
+ * pas de survente. Lignes triees par id variante pour limiter les interblocages.</p>
  *
- * <p><b>Prix</b> : le prix unitaire est copie depuis le produit au moment de la vente, afin qu'une
- * modification de prix ulterieure ne reecrive pas l'historique.</p>
+ * <p><b>Prix</b> : prix unitaire = prix du PRODUIT, capture a la vente. Couleur/taille/reference
+ * variante sont denormalises sur la ligne pour figer l'historique.</p>
  *
- * <p><b>Remise</b> : montant fixe (meme devise) soustrait du sous-total. Un total negatif est refuse.</p>
+ * <p><b>Remise</b> : montant fixe soustrait du sous-total ; total negatif refuse.</p>
  */
 @Slf4j
 @Service
@@ -53,7 +50,7 @@ import java.util.List;
 public class SaleService {
 
     private final SaleRepository saleRepository;
-    private final ProductRepository productRepository;
+    private final ProductVariantRepository variantRepository;
     private final UserRepository userRepository;
     private final SaleMapper saleMapper;
 
@@ -69,34 +66,38 @@ public class SaleService {
 
         BigDecimal subtotal = BigDecimal.ZERO;
 
-        // Tri par id produit pour reduire le risque d'interblocage entre ventes concurrentes.
+        // Tri par id variante pour reduire le risque d'interblocage entre ventes concurrentes.
         List<SaleItemRequest> items = request.items().stream()
-                .sorted(Comparator.comparing(SaleItemRequest::productId))
+                .sorted(Comparator.comparing(SaleItemRequest::variantId))
                 .toList();
 
         for (SaleItemRequest line : items) {
-            Product product = productRepository.findById(line.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Produit", line.productId()));
+            ProductVariant variant = variantRepository.findById(line.variantId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Variante", line.variantId()));
 
-            // Decrement atomique conditionnel : anti-survente garanti par la BDD.
-            int updated = productRepository.decrementStockIfAvailable(product.getId(), line.quantity());
+            // Decrement atomique conditionnel de la VARIANTE : anti-survente garanti par la BDD.
+            int updated = variantRepository.decrementStockIfAvailable(variant.getId(), line.quantity());
             if (updated == 0) {
                 throw new BusinessException(
-                        "Stock insuffisant pour le produit '" + product.getName()
-                                + "' (reference " + product.getReference() + ") : demande "
-                                + line.quantity() + ", disponible " + product.getQuantity(),
+                        "Stock insuffisant pour la declinaison '" + variant.getReference()
+                                + "' (" + variant.getColor().getName() + " / taille " + variant.getSize()
+                                + ") : demande " + line.quantity() + ", disponible " + variant.getQuantity(),
                         HttpStatus.CONFLICT);
             }
 
-            // Capture du prix au moment de la vente.
-            BigDecimal unitPrice = product.getSalePrice();
+            // Capture du prix (prix produit) + denormalisation des attributs variante.
+            BigDecimal unitPrice = variant.getProduct().getSalePrice();
             BigDecimal linePrice = unitPrice.multiply(BigDecimal.valueOf(line.quantity()));
 
             SaleItem saleItem = SaleItem.builder()
-                    .product(product)
+                    .variant(variant)
                     .quantity(line.quantity())
                     .unitPrice(unitPrice)
                     .totalPrice(linePrice)
+                    .variantReference(variant.getReference())
+                    .productName(variant.getProduct().getName())
+                    .colorName(variant.getColor().getName())
+                    .size(variant.getSize())
                     .build();
             sale.addItem(saleItem);
 
@@ -115,12 +116,12 @@ public class SaleService {
         sale.setTotalAmount(total);
 
         Sale saved = saleRepository.save(sale);
-        log.info("Vente id={} enregistree par {} : {} article(s), total {}",
+        log.info("Vente id={} enregistree par {} : {} ligne(s), total {}",
                 saved.getId(), seller.getEmail(), saved.getItems().size(), total);
         return saleMapper.toResponse(saved);
     }
 
-    /** Detail d'une vente (lignes + produits + vendeur), charge sans N+1 via @EntityGraph. */
+    /** Detail d'une vente (lignes denormalisees + vendeur), charge sans N+1 via @EntityGraph. */
     @Transactional(readOnly = true)
     public SaleResponse findById(Long id) {
         Sale sale = saleRepository.findDetailById(id)
@@ -128,17 +129,12 @@ public class SaleService {
         return saleMapper.toResponse(sale);
     }
 
-    /**
-     * Historique pagine des ventes, filtres optionnels par periode (dates incluses) et vendeur.
-     * Renvoie une projection legere (sans les lignes).
-     */
+    /** Historique pagine des ventes, filtres optionnels par periode (dates incluses) et vendeur. */
     @Transactional(readOnly = true)
     public PageResponse<SaleSummaryResponse> searchHistory(LocalDate from, LocalDate to,
                                                            Long sellerId, Pageable pageable) {
         LocalDateTime start = from != null ? from.atStartOfDay() : null;
-        // 'to' inclus : on borne a la fin de la journee (jour suivant a 00:00, exclu).
         LocalDateTime end = to != null ? to.plusDays(1).atStartOfDay() : null;
-
         Page<SaleSummaryResponse> page = saleRepository.searchHistory(start, end, sellerId, pageable);
         return PageResponse.of(page, page.getContent());
     }

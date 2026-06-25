@@ -37,9 +37,4 @@ public final class ProductSpecifications {
         }
         return (root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId);
     }
-
-    /** Produits dont la quantite est <= seuil d'alerte (rupture ou sous le seuil). */
-    public static Specification<Product> lowStockOnly() {
-        return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("quantity"), root.get("seuilAlerte"));
-    }
 }
