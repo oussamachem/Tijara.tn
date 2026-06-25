@@ -47,24 +47,31 @@ Trois livrables : **API REST** (Spring Boot), **web admin** (React), **mobile ve
 
 ## 2. Modèle de données
 
+Depuis la **Phase 9**, le stock vit au grain **variante** (SKU = couleur × taille). Un produit
+(« chemise ») se décline en `product_variant`, chacune avec sa quantité, sa référence et son QR.
+
 ```
-users (1)───< sales (1)───< sale_items >───(N) products >───(N) categories
-   │             │                                │
-   │             └──────< returns >───────────────┘
+users (1)───< sales (1)───< sale_items >───(N) product_variant >───(N) products >───(N) categories
+   │             │                                  │   │
+   │             └──────< returns >─────────────────┘   └──(N) colors
    └──< password_reset_tokens
 ```
 
 | Table | Champs clés |
 |---|---|
 | `users` | id, full_name, email (unique), password (BCrypt), role (ADMIN/VENDEUR), active, created_at |
-| `categories` | id, name (unique), description |
-| `products` | id, reference (unique), name, description, category_id (FK), size, color, purchase_price, sale_price, quantity, seuil_alerte, image_url, qr_code (unique), created_at |
+| `categories` | id, name (unique), description, **size_type** (LETTER/SHOE_EU/NUMERIC/NONE) |
+| `colors` | id, name (unique), hex |
+| `products` | id, reference (unique), name, description, category_id (FK), purchase_price, sale_price, image_url, created_at |
+| `product_variant` | id, product_id (FK), color_id (FK), size, **quantity**, **seuil_alerte**, reference (unique), qr_code (unique), created_at — unique (product_id, color_id, size) |
 | `sales` | id, seller_id (FK users), sale_date, payment_method (ESPECES/CARTE/MIXTE), discount, total_amount |
-| `sale_items` | id, sale_id (FK), product_id (FK), quantity, unit_price, total_price |
-| `returns` | id, sale_id (FK), product_id (FK), quantity, reason, return_date |
+| `sale_items` | id, sale_id (FK), **variant_id** (FK), quantity, unit_price, total_price — **+ dénorm** : variant_reference, product_name, color_name, size |
+| `returns` | id, sale_id (FK), **variant_id** (FK), quantity, reason, return_date |
 | `password_reset_tokens` | id, token (unique), user_id (FK), expires_at, used, created_at |
 
-Montants en `NUMERIC(12,2)` (jamais de `double`). Schéma figé dans `backend/.../db/migration/V1__init.sql` (Flyway, prod).
+- **Prix au niveau produit** ; **stock/QR au niveau variante**. Référence variante = `REF-SIZE-COLORSLUG` (stable, QR dessus).
+- Les `size_type` définissent un catalogue de tailles autorisées (validé serveur à la création).
+- Montants en `NUMERIC(12,2)`. Schéma : `V1__init.sql` (modèle initial) + `V2__variants.sql` (migration variantes), Flyway en prod (`ddl-auto=validate`).
 
 ---
 
@@ -158,3 +165,7 @@ SB_TEST_DB_URL=jdbc:postgresql://localhost:5544/sbtest SB_TEST_DB_USER=smartbout
 | Offline mobile | **Hors scope** | Une vente rejouée hors-ligne re-décrémenterait un stock qui a bougé → incohérence / double-vente. La cohérence prime. |
 | Impression thermique | **Hors scope** | Reçu écran + partage suffisent pour le périmètre. |
 | Testcontainers ↔ Docker local | Trappe `SB_TEST_DB_URL` | Le client docker-java embarqué ne négocie pas avec ce Docker Desktop (API 1.54) ; en CI standard Testcontainers démarre seul. |
+| **Seuil d'alerte** (Phase 9) | Porté par la **variante** | Déviation assumée du cahier Phase 9 (qui l'avait retiré de Product ET ProductVariant) : le stock vit sur la variante, donc son seuil aussi — sinon « sous seuil » est indéfinissable. La migration copie l'ancien `product.seuil_alerte` vers chaque variante. |
+| **Prix** (Phase 9) | Au niveau **produit** | Une chemise a un prix, pas chaque taille. Capturé sur la ligne de vente (figé). |
+| **Top produits** (Phase 9) | Agrégé au **produit** (roll-up variantes) | On veut connaître le *modèle* qui se vend ; rupture/stock restent au grain variante. |
+| **Édition référence produit** (Phase 9) | Régénère les références/QR des variantes | Garde la cohérence `REF-SIZE-COLOR` ; implique une réimpression des étiquettes QR. |
