@@ -46,7 +46,7 @@ export default function ReturnSaleScreen({ route }) {
     try {
       await returnsApi.create({
         saleId,
-        productId: selected.productId,
+        variantId: selected.variantId,
         quantity: qty,
         reason: reason.trim(),
       });
@@ -80,9 +80,9 @@ export default function ReturnSaleScreen({ route }) {
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.itemName}>{it.productName}</Text>
+                <Text style={styles.itemName}>{it.productName} <Text style={styles.decl}>({it.colorName} · {it.size})</Text></Text>
                 <Text style={styles.itemSub}>
-                  {it.productReference} · vendu {it.quantity} × {formatMoney(it.unitPrice)}
+                  {it.variantReference} · vendu {it.quantity} × {formatMoney(it.unitPrice)}
                 </Text>
               </View>
               {active && <Text style={styles.check}>✓</Text>}
@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
   itemActive: { borderColor: colors.primary, borderWidth: 2 },
   itemName: { fontSize: 16, fontWeight: '700', color: colors.text },
   itemSub: { fontSize: 13, color: colors.muted },
+  decl: { fontSize: 13, fontWeight: '400', color: colors.muted },
   check: { fontSize: 20, color: colors.primary, fontWeight: '800' },
   panel: { backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginTop: 4 },
   label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 },

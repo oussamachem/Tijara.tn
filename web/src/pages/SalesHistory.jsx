@@ -153,7 +153,7 @@ export default function SalesHistory() {
                   <tr key={r.id} className="border-t border-slate-100">
                     <td className="py-2">{formatDate(r.returnDate)}</td>
                     <td className="py-2 font-mono text-xs">#{r.saleId}</td>
-                    <td className="py-2">{r.productName} <span className="text-slate-400">({r.productReference})</span></td>
+                    <td className="py-2">{r.productName} <span className="text-slate-400">({r.colorName} · {r.size})</span></td>
                     <td className="py-2 text-right font-medium">{r.quantity}</td>
                     <td className="py-2 text-slate-500">{r.reason || '—'}</td>
                   </tr>

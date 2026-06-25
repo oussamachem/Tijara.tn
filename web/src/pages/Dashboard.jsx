@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { dashboardApi, productsApi } from '../api/endpoints.js';
+import { dashboardApi, variantsApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
 import { Card, Spinner, Alert, Badge } from '../components/ui.jsx';
 import { formatMoney } from '../utils/format.js';
@@ -23,7 +23,7 @@ export default function Dashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [dash, low] = await Promise.all([dashboardApi.get(), productsApi.lowStock()]);
+        const [dash, low] = await Promise.all([dashboardApi.get(), variantsApi.lowStock()]);
         setData(dash.data);
         setLowStock(low.data);
       } catch (err) {
@@ -52,9 +52,10 @@ export default function Dashboard() {
         <StatCard label="Produits" value={data.totalProducts} />
         <StatCard label="Stock total" value={data.totalStock} sub="unités" />
         <StatCard
-          label="Sous le seuil / rupture"
-          value={data.lowStockCount}
-          accent={data.lowStockCount > 0 ? 'text-amber-600' : 'text-slate-800'}
+          label="Variantes sous seuil / rupture"
+          value={data.lowStockVariants}
+          sub={`sur ${data.lowStockProducts} produit(s)`}
+          accent={data.lowStockVariants > 0 ? 'text-amber-600' : 'text-slate-800'}
         />
         <StatCard
           label="Ventes du jour"
@@ -109,14 +110,15 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card title="Produits sous le seuil d'alerte">
+      <Card title="Variantes sous le seuil d'alerte">
         {lowStock.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucun produit en alerte. 👍</p>
+          <p className="text-sm text-slate-400">Aucune variante en alerte. 👍</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="pb-2">Produit</th>
+                <th className="pb-2">Déclinaison</th>
                 <th className="pb-2">Référence</th>
                 <th className="pb-2 text-right">Stock</th>
                 <th className="pb-2 text-right">Seuil</th>
@@ -124,14 +126,15 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {lowStock.map((p) => (
-                <tr key={p.id} className="border-t border-slate-100">
-                  <td className="py-2">{p.name}</td>
-                  <td className="py-2 text-slate-500">{p.reference}</td>
-                  <td className="py-2 text-right font-medium">{p.quantity}</td>
-                  <td className="py-2 text-right text-slate-500">{p.seuilAlerte}</td>
+              {lowStock.map((v) => (
+                <tr key={v.variantId} className="border-t border-slate-100">
+                  <td className="py-2">{v.productName}</td>
+                  <td className="py-2 text-slate-500">{v.colorName} · {v.size}</td>
+                  <td className="py-2 font-mono text-xs text-slate-400">{v.variantReference}</td>
+                  <td className="py-2 text-right font-medium">{v.quantity}</td>
+                  <td className="py-2 text-right text-slate-500">{v.seuilAlerte}</td>
                   <td className="py-2 text-right">
-                    {p.quantity === 0 ? <Badge color="red">Rupture</Badge> : <Badge color="amber">Faible</Badge>}
+                    {v.quantity === 0 ? <Badge color="red">Rupture</Badge> : <Badge color="amber">Faible</Badge>}
                   </td>
                 </tr>
               ))}

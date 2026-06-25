@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useIsFocused } from '@react-navigation/native';
-import { productsApi } from '../api/endpoints';
+import { variantsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
 import { AppButton } from '../components';
 import AddToCartSheet from '../widgets/AddToCartSheet';
@@ -14,7 +14,7 @@ export default function ScanScreen() {
 
   const [scanned, setScanned] = useState(false); // true = scan suspendu (anti-rebond)
   const [resolving, setResolving] = useState(false);
-  const [product, setProduct] = useState(null);
+  const [variant, setVariant] = useState(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -25,14 +25,14 @@ export default function ScanScreen() {
     setResolving(true);
     setMessage('');
     try {
-      // data = la RÉFÉRENCE encodée dans le QR -> résolution serveur.
-      const { data: resolved } = await productsApi.byQr(data);
-      setProduct(resolved);
+      // data = la RÉFÉRENCE de la VARIANTE encodée dans le QR -> résolution serveur.
+      const { data: resolved } = await variantsApi.byQr(data);
+      setVariant(resolved);
       setSheetVisible(true);
     } catch (err) {
-      const msg = err?.response?.status === 404 ? `Produit introuvable pour « ${data} »` : apiError(err);
+      const msg = err?.response?.status === 404 ? `Aucune variante pour « ${data} »` : apiError(err);
       setMessage(msg);
-      // Pas de produit : on laisse l'utilisateur re-scanner via le bouton.
+      // Pas de variante : on laisse l'utilisateur re-scanner via le bouton.
     } finally {
       setResolving(false);
     }
@@ -40,7 +40,7 @@ export default function ScanScreen() {
 
   const rearm = () => {
     setSheetVisible(false);
-    setProduct(null);
+    setVariant(null);
     setMessage('');
     setScanned(false); // réarme le scan
   };
@@ -106,7 +106,7 @@ export default function ScanScreen() {
         </View>
       )}
 
-      <AddToCartSheet product={product} visible={sheetVisible} onClose={rearm} />
+      <AddToCartSheet variant={variant} visible={sheetVisible} onClose={rearm} />
     </View>
   );
 }

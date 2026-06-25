@@ -29,7 +29,7 @@ export default function CartScreen() {
     setError('');
     try {
       const payload = {
-        items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+        items: items.map((i) => ({ variantId: i.variant.variantId, quantity: i.quantity })),
         paymentMethod: payment,
       };
       const d = parseFloat(String(discount).replace(',', '.'));
@@ -61,24 +61,24 @@ export default function CartScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
         data={items}
-        keyExtractor={(i) => String(i.product.id)}
+        keyExtractor={(i) => String(i.variant.variantId)}
         contentContainerStyle={{ padding: 16, gap: 10 }}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{item.product.name}</Text>
+              <Text style={styles.name}>{item.variant.productName}</Text>
               <Text style={styles.ref}>
-                {formatMoney(item.product.salePrice)} × {item.quantity} ={' '}
-                {formatMoney(Number(item.product.salePrice) * item.quantity)}
+                {item.variant.colorName} · {item.variant.size} — {formatMoney(item.variant.salePrice)} × {item.quantity} ={' '}
+                {formatMoney(Number(item.variant.salePrice) * item.quantity)}
               </Text>
-              <TouchableOpacity onPress={() => remove(item.product.id)}>
+              <TouchableOpacity onPress={() => remove(item.variant.variantId)}>
                 <Text style={styles.removeLink}>Retirer</Text>
               </TouchableOpacity>
             </View>
             <QtyStepper
               value={item.quantity}
-              onChange={(q) => setQuantity(item.product.id, q)}
-              max={item.product.quantity > 0 ? item.product.quantity : undefined}
+              onChange={(q) => setQuantity(item.variant.variantId, q)}
+              max={item.variant.quantity > 0 ? item.variant.quantity : undefined}
             />
           </View>
         )}

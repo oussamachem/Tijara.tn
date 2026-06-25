@@ -62,6 +62,7 @@ export default function SaleDetail() {
           <thead>
             <tr className="text-left text-slate-500">
               <th className="pb-2">Produit</th>
+              <th className="pb-2">Déclinaison</th>
               <th className="pb-2">Référence</th>
               <th className="pb-2 text-right">Qté</th>
               <th className="pb-2 text-right">Prix unitaire</th>
@@ -72,7 +73,8 @@ export default function SaleDetail() {
             {sale.items.map((it) => (
               <tr key={it.id} className="border-t border-slate-100">
                 <td className="py-2">{it.productName}</td>
-                <td className="py-2 font-mono text-xs text-slate-500">{it.productReference}</td>
+                <td className="py-2 text-slate-500">{it.colorName} · {it.size}</td>
+                <td className="py-2 font-mono text-xs text-slate-500">{it.variantReference}</td>
                 <td className="py-2 text-right">{it.quantity}</td>
                 <td className="py-2 text-right">{formatMoney(it.unitPrice)}</td>
                 <td className="py-2 text-right font-medium">{formatMoney(it.totalPrice)}</td>
@@ -81,15 +83,15 @@ export default function SaleDetail() {
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-200">
-              <td colSpan={4} className="py-2 text-right text-slate-500">Sous-total</td>
+              <td colSpan={5} className="py-2 text-right text-slate-500">Sous-total</td>
               <td className="py-2 text-right">{formatMoney(sale.subtotal)}</td>
             </tr>
             <tr>
-              <td colSpan={4} className="py-1 text-right text-slate-500">Remise</td>
+              <td colSpan={5} className="py-1 text-right text-slate-500">Remise</td>
               <td className="py-1 text-right text-red-600">- {formatMoney(sale.discount)}</td>
             </tr>
             <tr>
-              <td colSpan={4} className="py-1 text-right font-semibold text-slate-700">Total</td>
+              <td colSpan={5} className="py-1 text-right font-semibold text-slate-700">Total</td>
               <td className="py-1 text-right font-bold text-green-700">{formatMoney(sale.totalAmount)}</td>
             </tr>
           </tfoot>

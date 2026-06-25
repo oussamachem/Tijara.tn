@@ -43,7 +43,7 @@ export default function ReceiptScreen({ route }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemName}>{it.productName}</Text>
                 <Text style={styles.itemSub}>
-                  {it.quantity} × {formatMoney(it.unitPrice)}
+                  {it.colorName} · {it.size} — {it.quantity} × {formatMoney(it.unitPrice)}
                 </Text>
               </View>
               <Text style={styles.itemTotal}>{formatMoney(it.totalPrice)}</Text>

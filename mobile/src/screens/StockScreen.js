@@ -63,19 +63,26 @@ export default function StockScreen() {
         refreshControl={<RefreshControl refreshing={false} onRefresh={() => load(query)} />}
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.ref}>{item.reference} · {formatMoney(item.salePrice)}</Text>
+            <View style={styles.head}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{item.name}</Text>
+                <Text style={styles.ref}>{item.reference} · {formatMoney(item.salePrice)}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.qty}>{item.totalStock}</Text>
+                <Text style={styles.qtyLabel}>total</Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.qty}>{item.quantity}</Text>
-              {item.quantity <= 0 ? (
-                <Badge text="Rupture" color={colors.danger} />
-              ) : item.lowStock ? (
-                <Badge text="Sous seuil" color={colors.amber} />
-              ) : (
-                <Badge text="OK" color={colors.success} />
-              )}
+            <View style={styles.variants}>
+              {item.variants.map((v) => (
+                <View key={v.id} style={styles.vChip}>
+                  <View style={[styles.swatch, { backgroundColor: v.colorHex || '#fff' }]} />
+                  <Text style={styles.vText}>{v.colorName} · {v.size}</Text>
+                  <Text style={[styles.vQty, v.quantity === 0 && { color: colors.danger }, v.lowStock && v.quantity > 0 && { color: colors.amber }]}>
+                    {v.quantity}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
         )}
@@ -88,9 +95,16 @@ export default function StockScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   searchBar: { flexDirection: 'row', gap: 10, padding: 16, alignItems: 'center' },
-  row: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  row: { backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border, gap: 8 },
+  head: { flexDirection: 'row', alignItems: 'center' },
   name: { fontSize: 16, fontWeight: '700', color: colors.text },
   ref: { fontSize: 13, color: colors.muted },
   qty: { fontSize: 20, fontWeight: '800', color: colors.text },
+  qtyLabel: { fontSize: 11, color: colors.muted },
+  variants: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  vChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.bg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  swatch: { width: 12, height: 12, borderRadius: 6, borderWidth: 1, borderColor: colors.border },
+  vText: { fontSize: 12, color: colors.text },
+  vQty: { fontSize: 12, fontWeight: '700', color: colors.success },
   empty: { textAlign: 'center', color: colors.muted, marginTop: 30 },
 });

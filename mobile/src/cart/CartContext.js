@@ -3,38 +3,42 @@ import { createContext, useContext, useMemo, useState } from 'react';
 const CartContext = createContext(null);
 
 /**
- * Panier = commodité UI uniquement. Le sous-total affiché est INDICATIF (calculé sur les
- * prix lus). La source de vérité du total est la réponse de POST /api/sales (cf. reçu).
+ * Panier = commodité UI. Chaque ligne cible une VARIANTE (déclinaison couleur x taille).
+ * Le sous-total affiché est INDICATIF ; la source de vérité du total est la réponse
+ * de POST /api/sales (cf. reçu).
+ *
+ * Forme d'une "variante" de panier :
+ *   { variantId, variantReference, productName, salePrice, colorName, size, quantity (stock) }
  */
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // [{ product, quantity }]
+  const [items, setItems] = useState([]); // [{ variant, quantity }]
 
-  const add = (product, quantity = 1) => {
+  const add = (variant, quantity = 1) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
+      const existing = prev.find((i) => i.variant.variantId === variant.variantId);
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
+          i.variant.variantId === variant.variantId ? { ...i, quantity: i.quantity + quantity } : i
         );
       }
-      return [...prev, { product, quantity }];
+      return [...prev, { variant, quantity }];
     });
   };
 
-  const setQuantity = (productId, quantity) => {
+  const setQuantity = (variantId, quantity) => {
     setItems((prev) =>
       prev
-        .map((i) => (i.product.id === productId ? { ...i, quantity } : i))
+        .map((i) => (i.variant.variantId === variantId ? { ...i, quantity } : i))
         .filter((i) => i.quantity > 0)
     );
   };
 
-  const remove = (productId) => setItems((prev) => prev.filter((i) => i.product.id !== productId));
+  const remove = (variantId) => setItems((prev) => prev.filter((i) => i.variant.variantId !== variantId));
   const clear = () => setItems([]);
 
   const count = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);
   const subtotal = useMemo(
-    () => items.reduce((s, i) => s + Number(i.product.salePrice) * i.quantity, 0),
+    () => items.reduce((s, i) => s + Number(i.variant.salePrice) * i.quantity, 0),
     [items]
   );
 

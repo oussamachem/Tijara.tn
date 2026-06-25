@@ -15,20 +15,29 @@ export const dashboardApi = {
 // -------------------------------- Catégories ---------------------------------
 export const categoriesApi = {
   list: () => client.get('/api/categories'),
+  sizeOptions: (id) => client.get(`/api/categories/${id}/size-options`),
   create: (payload) => client.post('/api/admin/categories', payload),
   update: (id, payload) => client.put(`/api/admin/categories/${id}`, payload),
   remove: (id) => client.delete(`/api/admin/categories/${id}`),
+};
+
+// --------------------------------- Couleurs ----------------------------------
+export const colorsApi = {
+  list: () => client.get('/api/colors'),
+  create: (payload) => client.post('/api/admin/colors', payload),
+  update: (id, payload) => client.put(`/api/admin/colors/${id}`, payload),
+  remove: (id) => client.delete(`/api/admin/colors/${id}`),
 };
 
 // --------------------------------- Produits ----------------------------------
 export const productsApi = {
   search: (params) => client.get('/api/products', { params }),
   get: (id) => client.get(`/api/products/${id}`),
+  // create payload = { reference, name, description, categoryId, purchasePrice, salePrice, variants:[{colorId,size,quantity,seuilAlerte}] }
   create: (payload) => client.post('/api/admin/products', payload),
-  update: (id, payload) => client.put(`/api/admin/products/${id}`, payload),
+  updateHeader: (id, payload) => client.put(`/api/admin/products/${id}`, payload),
   remove: (id) => client.delete(`/api/admin/products/${id}`),
-  lowStock: () => client.get('/api/products/low-stock'),
-  setStock: (id, quantity) => client.patch(`/api/admin/products/${id}/stock`, { quantity }),
+  addVariant: (id, payload) => client.post(`/api/admin/products/${id}/variants`, payload),
   uploadImage: (id, file) => {
     const form = new FormData();
     form.append('file', file);
@@ -36,8 +45,17 @@ export const productsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  // Récupère l'image PNG du QR Code en blob (avec le header d'auth).
-  qrCode: (id) => client.get(`/api/products/${id}/qrcode`, { responseType: 'blob' }),
+};
+
+// --------------------------------- Variantes ---------------------------------
+export const variantsApi = {
+  byQr: (code) => client.get('/api/variants/by-qr', { params: { code } }),
+  lowStock: () => client.get('/api/variants/low-stock'),
+  remove: (id) => client.delete(`/api/admin/variants/${id}`),
+  setStock: (id, quantity) => client.patch(`/api/admin/variants/${id}/stock`, { quantity }),
+  adjustStock: (id, delta) => client.patch(`/api/admin/variants/${id}/stock/adjust`, { delta }),
+  // Image PNG du QR Code de la variante (blob, avec auth).
+  qrCode: (id) => client.get(`/api/variants/${id}/qrcode`, { responseType: 'blob' }),
 };
 
 // --------------------------------- Vendeurs ----------------------------------

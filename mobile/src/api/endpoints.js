@@ -5,11 +5,15 @@ export const authApi = {
 };
 
 export const productsApi = {
-  // Résolution QR : le contenu du QR est la RÉFÉRENCE produit.
-  byQr: (code) => client.get('/api/products/by-qr', { params: { code } }),
+  // Liste des produits (chaque produit porte ses variantes).
   search: (params) => client.get('/api/products', { params }),
   get: (id) => client.get(`/api/products/${id}`),
-  lowStock: () => client.get('/api/products/low-stock'),
+};
+
+export const variantsApi = {
+  // Résolution scan : le contenu du QR est la RÉFÉRENCE de la VARIANTE.
+  byQr: (code) => client.get('/api/variants/by-qr', { params: { code } }),
+  lowStock: () => client.get('/api/variants/low-stock'),
 };
 
 export const salesApi = {

@@ -7,6 +7,7 @@ import ResetPassword from './pages/ResetPassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Products from './pages/Products.jsx';
 import Categories from './pages/Categories.jsx';
+import Colors from './pages/Colors.jsx';
 import Sellers from './pages/Sellers.jsx';
 import SalesHistory from './pages/SalesHistory.jsx';
 import SaleDetail from './pages/SaleDetail.jsx';
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/produits" element={<Products />} />
         <Route path="/categories" element={<Categories />} />
+        <Route path="/couleurs" element={<Colors />} />
         <Route path="/vendeurs" element={<Sellers />} />
         <Route path="/historique" element={<SalesHistory />} />
         <Route path="/ventes/:id" element={<SaleDetail />} />
