@@ -32,7 +32,7 @@ public interface ReturnRepository extends JpaRepository<Return, Long>, JpaSpecif
     /** Historique pagine des retours (projection), filtre optionnel par periode. */
     @Query(value = "SELECT new com.smartboutique.dto.ReturnResponse(" +
             "r.id, r.sale.id, r.variant.id, r.variant.reference, r.variant.product.name, " +
-            "r.variant.color.name, r.variant.size, r.quantity, r.reason, r.returnDate) " +
+            "r.variant.color.name, r.variant.size.label, r.quantity, r.reason, r.returnDate) " +
             "FROM Return r " +
             "WHERE (cast(:start as timestamp) IS NULL OR r.returnDate >= :start) " +
             "AND (cast(:end as timestamp) IS NULL OR r.returnDate < :end) " +

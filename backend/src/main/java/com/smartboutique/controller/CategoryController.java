@@ -1,7 +1,6 @@
 package com.smartboutique.controller;
 
 import com.smartboutique.dto.CategoryResponse;
-import com.smartboutique.dto.SizeOptionsResponse;
 import com.smartboutique.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -27,11 +26,5 @@ public class CategoryController {
     @GetMapping("/{id}")
     public CategoryResponse get(@PathVariable Long id) {
         return categoryService.findById(id);
-    }
-
-    /** Tailles autorisees pour cette categorie (alimente le formulaire de creation produit). */
-    @GetMapping("/{id}/size-options")
-    public SizeOptionsResponse sizeOptions(@PathVariable Long id) {
-        return categoryService.sizeOptions(id);
     }
 }

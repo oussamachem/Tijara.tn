@@ -46,9 +46,6 @@ public class Product {
     @Column(name = "sale_price", precision = 12, scale = 2)
     private BigDecimal salePrice;
 
-    @Column(name = "image_url")
-    private String imageUrl;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -58,8 +55,46 @@ public class Product {
     @Builder.Default
     private List<ProductVariant> variants = new ArrayList<>();
 
+    /**
+     * Galerie de photos du produit, triee par position. La position 0 est la couverture
+     * (exposee en imageUrl dans le DTO pour la non-regression mono-image : liste, mobile).
+     */
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
+    @Builder.Default
+    private List<ProductImage> images = new ArrayList<>();
+
     public void addVariant(ProductVariant variant) {
         variants.add(variant);
         variant.setProduct(this);
+    }
+
+    // ----------------------------- Helpers galerie ------------------------------
+
+    /** Ajoute une image en fin de galerie (position = taille courante) et lie les deux cotes. */
+    public ProductImage addImage(String url) {
+        ProductImage image = ProductImage.builder()
+                .product(this)
+                .url(url)
+                .position(images.size())
+                .build();
+        images.add(image);
+        return image;
+    }
+
+    /** URL de la couverture (image de position la plus basse), ou null si aucune photo. */
+    public String getCoverUrl() {
+        return images.stream()
+                .min(java.util.Comparator.comparingInt(ProductImage::getPosition))
+                .map(ProductImage::getUrl)
+                .orElse(null);
+    }
+
+    /** Renumerote les positions 0..n-1 selon l'ordre courant (apres suppression/reordre). */
+    public void normalizePositions() {
+        images.sort(java.util.Comparator.comparingInt(ProductImage::getPosition));
+        for (int i = 0; i < images.size(); i++) {
+            images.get(i).setPosition(i);
+        }
     }
 }

@@ -82,17 +82,9 @@ public class DataSeeder implements CommandLineRunner {
     private void seedCategories() {
         DEFAULT_CATEGORIES.forEach(name -> {
             if (!categoryRepository.existsByName(name)) {
-                categoryRepository.save(Category.builder().name(name).sizeType(sizeTypeFor(name)).build());
-                log.info("Categorie d'exemple creee : {} ({})", name, sizeTypeFor(name));
+                categoryRepository.save(Category.builder().name(name).build());
+                log.info("Categorie d'exemple creee : {}", name);
             }
         });
-    }
-
-    private com.smartboutique.entity.SizeType sizeTypeFor(String categoryName) {
-        return switch (categoryName) {
-            case "Chaussures" -> com.smartboutique.entity.SizeType.SHOE_EU;
-            case "Accessoires" -> com.smartboutique.entity.SizeType.NONE;
-            default -> com.smartboutique.entity.SizeType.LETTER;
-        };
     }
 }

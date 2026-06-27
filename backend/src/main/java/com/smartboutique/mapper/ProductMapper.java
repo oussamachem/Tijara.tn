@@ -1,9 +1,11 @@
 package com.smartboutique.mapper;
 
+import com.smartboutique.dto.ProductImageResponse;
 import com.smartboutique.dto.ProductResponse;
 import com.smartboutique.dto.VariantResponse;
 import com.smartboutique.entity.Category;
 import com.smartboutique.entity.Product;
+import com.smartboutique.entity.ProductImage;
 import com.smartboutique.entity.ProductVariant;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +27,7 @@ public class ProductMapper {
                 v.getColor() != null ? v.getColor().getId() : null,
                 v.getColor() != null ? v.getColor().getName() : null,
                 v.getColor() != null ? v.getColor().getHex() : null,
-                v.getSize(),
+                v.getSize().getLabel(),
                 v.getQuantity(),
                 v.getSeuilAlerte(),
                 isLowStock(v),
@@ -46,6 +48,13 @@ public class ProductMapper {
         int totalStock = variants.stream().mapToInt(v -> v.getQuantity() == null ? 0 : v.getQuantity()).sum();
         boolean anyLow = variants.stream().anyMatch(this::isLowStock);
 
+        // Galerie triee par position ; la couverture (position 0) reste exposee en imageUrl.
+        List<ProductImageResponse> images = product.getImages().stream()
+                .sorted(Comparator.comparingInt(ProductImage::getPosition))
+                .map(img -> new ProductImageResponse(img.getId(), img.getUrl(), img.getPosition()))
+                .toList();
+        String coverUrl = images.isEmpty() ? null : images.get(0).url();
+
         return new ProductResponse(
                 product.getId(),
                 product.getReference(),
@@ -55,7 +64,8 @@ public class ProductMapper {
                 category != null ? category.getName() : null,
                 product.getPurchasePrice(),
                 product.getSalePrice(),
-                product.getImageUrl(),
+                coverUrl,
+                images,
                 product.getCreatedAt(),
                 totalStock,
                 anyLow,

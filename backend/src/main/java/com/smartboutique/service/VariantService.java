@@ -6,6 +6,7 @@ import com.smartboutique.dto.VariantScanResponse;
 import com.smartboutique.entity.Color;
 import com.smartboutique.entity.Product;
 import com.smartboutique.entity.ProductVariant;
+import com.smartboutique.entity.Size;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.DuplicateResourceException;
 import com.smartboutique.exception.ResourceNotFoundException;
@@ -14,6 +15,7 @@ import com.smartboutique.repository.ColorRepository;
 import com.smartboutique.repository.ProductRepository;
 import com.smartboutique.repository.ProductVariantRepository;
 import com.smartboutique.repository.SaleItemRepository;
+import com.smartboutique.repository.SizeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,6 +35,7 @@ public class VariantService {
     private final ProductVariantRepository variantRepository;
     private final ProductRepository productRepository;
     private final ColorRepository colorRepository;
+    private final SizeRepository sizeRepository;
     private final SaleItemRepository saleItemRepository;
     private final ProductMapper productMapper;
     private final VariantSupport variantSupport;
@@ -69,19 +72,20 @@ public class VariantService {
                 .orElseThrow(() -> new ResourceNotFoundException("Produit", productId));
         Color color = colorRepository.findById(request.colorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Couleur", request.colorId()));
-        variantSupport.validateSize(product.getCategory(), request.size());
+        Size size = sizeRepository.findById(request.sizeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Taille", request.sizeId()));
 
-        if (variantRepository.existsByProductIdAndColorIdAndSize(productId, request.colorId(), request.size())) {
+        if (variantRepository.existsByProductIdAndColorIdAndSizeId(productId, request.colorId(), request.sizeId())) {
             throw new DuplicateResourceException("Cette declinaison (couleur + taille) existe deja pour ce produit");
         }
-        String ref = variantSupport.buildVariantReference(product.getReference(), request.size(), color.getName());
+        String ref = variantSupport.buildVariantReference(product.getReference(), size.getLabel(), color.getName());
         if (variantRepository.existsByReference(ref)) {
             throw new DuplicateResourceException("Reference de variante en conflit : " + ref);
         }
         ProductVariant v = ProductVariant.builder()
                 .product(product)
                 .color(color)
-                .size(request.size())
+                .size(size)
                 .quantity(request.quantity())
                 .seuilAlerte(request.seuilAlerte() != null ? request.seuilAlerte() : 0)
                 .reference(ref)
@@ -148,7 +152,7 @@ public class VariantService {
                 c != null ? c.getId() : null,
                 c != null ? c.getName() : null,
                 c != null ? c.getHex() : null,
-                v.getSize(), v.getQuantity(), v.getSeuilAlerte(),
+                v.getSize().getLabel(), v.getQuantity(), v.getSeuilAlerte(),
                 productMapper.isLowStock(v));
     }
 }

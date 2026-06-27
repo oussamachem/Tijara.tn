@@ -22,13 +22,16 @@ public interface ProductVariantRepository
     /** Garde-fou suppression couleur : refuser si une variante l'utilise. */
     boolean existsByColorId(Long colorId);
 
+    /** Garde-fou suppression taille : refuser si une variante l'utilise. */
+    boolean existsBySizeId(Long sizeId);
+
     /** Nombre de variantes d'un produit (invariant : on ne supprime pas la derniere). */
     long countByProductId(Long productId);
 
     List<ProductVariant> findByProductId(Long productId);
 
     /** Une declinaison (couleur+taille) existe-t-elle deja pour ce produit ? */
-    boolean existsByProductIdAndColorIdAndSize(Long productId, Long colorId, String size);
+    boolean existsByProductIdAndColorIdAndSizeId(Long productId, Long colorId, Long sizeId);
 
     /**
      * Decrement atomique conditionnel du stock de la VARIANTE (anti-survente concurrente).

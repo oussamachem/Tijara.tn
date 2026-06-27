@@ -18,7 +18,7 @@ public class ReturnMapper {
                 v.getReference(),
                 v.getProduct().getName(),
                 v.getColor() != null ? v.getColor().getName() : null,
-                v.getSize(),
+                v.getSize().getLabel(),
                 ret.getQuantity(),
                 ret.getReason(),
                 ret.getReturnDate()

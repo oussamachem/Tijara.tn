@@ -12,14 +12,7 @@ CREATE TABLE colors (
     CONSTRAINT uk_colors_name UNIQUE (name)
 );
 
--- 2. Type de taille sur la categorie (backfill defaut LETTER ; l'admin ajuste ensuite)
-ALTER TABLE categories ADD COLUMN size_type VARCHAR(20);
-UPDATE categories SET size_type = 'LETTER' WHERE size_type IS NULL;
-ALTER TABLE categories ALTER COLUMN size_type SET NOT NULL;
-ALTER TABLE categories ADD CONSTRAINT ck_categories_size_type
-    CHECK (size_type IN ('LETTER', 'SHOE_EU', 'NUMERIC', 'NONE'));
-
--- 3. Couleurs distinctes issues des produits existants (couleur vide -> "Unique")
+-- 2. Couleurs distinctes issues des produits existants (couleur vide -> "Unique")
 INSERT INTO colors (name)
 SELECT DISTINCT COALESCE(NULLIF(TRIM(color), ''), 'Unique')
 FROM products

@@ -55,9 +55,11 @@ public class FileStorageService {
     }
 
     /**
-     * Enregistre l'image et renvoie son URL relative (servie sous /uploads/**).
+     * Valide un fichier (presence, taille, type) sans l'ecrire. Permet de tout verifier
+     * AVANT d'ecrire quoi que ce soit lors d'un upload multiple (pas de fichier orphelin
+     * si un fichier du lot est invalide). Renvoie l'extension associee au type MIME.
      */
-    public String store(MultipartFile file) {
+    public String validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("Aucun fichier fourni", HttpStatus.BAD_REQUEST);
         }
@@ -70,7 +72,14 @@ public class FileStorageService {
             throw new BusinessException(
                     "Format d'image non supporte (PNG, JPG ou WEBP attendu)", HttpStatus.BAD_REQUEST);
         }
+        return extension;
+    }
 
+    /**
+     * Enregistre l'image et renvoie son URL relative (servie sous /uploads/**).
+     */
+    public String store(MultipartFile file) {
+        String extension = validate(file);
         String filename = UUID.randomUUID() + "." + extension;
         try {
             Path target = root.resolve(filename).normalize();
@@ -86,5 +95,30 @@ public class FileStorageService {
         log.info("Image enregistree : {} ({})", filename, StringUtils.cleanPath(
                 file.getOriginalFilename() == null ? "" : file.getOriginalFilename()));
         return "/uploads/" + filename;
+    }
+
+    /**
+     * Supprime du disque le fichier associe a une URL {@code /uploads/<nom>} (anti-orphelins
+     * lors du retrait d'une image ou de la suppression d'un produit). Best-effort : ne fait
+     * pas echouer l'operation metier si le fichier est deja absent.
+     */
+    public void delete(String url) {
+        if (url == null || !url.startsWith("/uploads/")) {
+            return;
+        }
+        String filename = url.substring("/uploads/".length());
+        try {
+            Path target = root.resolve(filename).normalize();
+            // Securite : ne supprime jamais hors du dossier d'upload (anti path-traversal).
+            if (!target.getParent().equals(root)) {
+                log.warn("Suppression ignoree (chemin hors uploads) : {}", url);
+                return;
+            }
+            boolean deleted = Files.deleteIfExists(target);
+            log.info("Image disque {} : {}", deleted ? "supprimee" : "deja absente", filename);
+        } catch (IOException e) {
+            // On journalise mais on ne bloque pas l'operation metier (suppression DB deja faite).
+            log.warn("Echec suppression fichier image {} : {}", filename, e.getMessage());
+        }
     }
 }

@@ -12,7 +12,7 @@ public record VariantCellRequest(
         Long colorId,
 
         @NotNull(message = "La taille est obligatoire")
-        String size,
+        Long sizeId,
 
         @NotNull(message = "La quantite est obligatoire")
         @PositiveOrZero(message = "La quantite ne peut etre negative")

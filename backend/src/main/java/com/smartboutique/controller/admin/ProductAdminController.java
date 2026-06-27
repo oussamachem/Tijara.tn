@@ -1,6 +1,7 @@
 package com.smartboutique.controller.admin;
 
 import com.smartboutique.dto.AddVariantRequest;
+import com.smartboutique.dto.ImageReorderRequest;
 import com.smartboutique.dto.ProductHeaderRequest;
 import com.smartboutique.dto.ProductRequest;
 import com.smartboutique.dto.ProductResponse;
@@ -13,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 /**
  * CRUD des produits (entete + matrice de variantes) + upload d'image, reserve a l'ADMIN.
@@ -45,10 +48,22 @@ public class ProductAdminController {
         productService.delete(id);
     }
 
-    /** Upload d'une image produit (multipart/form-data, champ "file"). */
-    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ProductResponse uploadImage(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
-        return productService.uploadImage(id, file);
+    /** Upload d'une ou plusieurs images produit (multipart/form-data, champ "files"). */
+    @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ProductResponse uploadImages(@PathVariable Long id, @RequestParam("files") List<MultipartFile> files) {
+        return productService.uploadImages(id, files);
+    }
+
+    /** Retire une image de la galerie (ligne DB + fichier disque). */
+    @DeleteMapping("/{id}/images/{imageId}")
+    public ProductResponse deleteImage(@PathVariable Long id, @PathVariable Long imageId) {
+        return productService.deleteImage(id, imageId);
+    }
+
+    /** Reordonne la galerie (position 0 = couverture). */
+    @PutMapping("/{id}/images/order")
+    public ProductResponse reorderImages(@PathVariable Long id, @Valid @RequestBody ImageReorderRequest request) {
+        return productService.reorderImages(id, request.imageIds());
     }
 
     /** Ajoute une variante (declinaison) a un produit existant. */

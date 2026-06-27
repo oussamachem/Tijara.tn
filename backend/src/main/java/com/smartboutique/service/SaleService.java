@@ -80,7 +80,7 @@ public class SaleService {
             if (updated == 0) {
                 throw new BusinessException(
                         "Stock insuffisant pour la declinaison '" + variant.getReference()
-                                + "' (" + variant.getColor().getName() + " / taille " + variant.getSize()
+                                + "' (" + variant.getColor().getName() + " / taille " + variant.getSize().getLabel()
                                 + ") : demande " + line.quantity() + ", disponible " + variant.getQuantity(),
                         HttpStatus.CONFLICT);
             }
@@ -97,7 +97,7 @@ public class SaleService {
                     .variantReference(variant.getReference())
                     .productName(variant.getProduct().getName())
                     .colorName(variant.getColor().getName())
-                    .size(variant.getSize())
+                    .size(variant.getSize().getLabel())
                     .build();
             sale.addItem(saleItem);
 

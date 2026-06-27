@@ -1,15 +1,14 @@
 package com.smartboutique.service;
 
-import com.smartboutique.entity.Category;
-import com.smartboutique.exception.BusinessException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
 
 /**
  * Helpers partages entre la creation de produit et l'ajout de variante :
- * slug couleur, reference variante stable, validation de la taille selon la categorie.
+ * slug couleur et reference variante stable. Les tailles proviennent du catalogue
+ * Tailles gere (table sizes) : la validation = la taille existe dans le catalogue
+ * (resolue par id cote service), il n'y a plus de SizeType par categorie.
  */
 @Component
 public class VariantSupport {
@@ -23,19 +22,8 @@ public class VariantSupport {
                 .replaceAll("(^-|-$)", "");
     }
 
-    /** Reference variante = REF-SIZE-COLORSLUG (stable, unique). */
-    public String buildVariantReference(String productReference, String size, String colorName) {
-        return productReference + "-" + size.toUpperCase() + "-" + slug(colorName);
-    }
-
-    /** Refuse une taille non conforme au SizeType de la categorie. */
-    public void validateSize(Category category, String size) {
-        if (!category.getSizeType().isAllowed(size)) {
-            throw new BusinessException(
-                    "Taille '" + size + "' invalide pour la categorie '" + category.getName()
-                            + "' (type " + category.getSizeType() + ", autorisees : "
-                            + category.getSizeType().allowedSizes() + ")",
-                    HttpStatus.BAD_REQUEST);
-        }
+    /** Reference variante = REF-SIZESLUG-COLORSLUG (stable, unique). */
+    public String buildVariantReference(String productReference, String sizeLabel, String colorName) {
+        return productReference + "-" + slug(sizeLabel) + "-" + slug(colorName);
     }
 }

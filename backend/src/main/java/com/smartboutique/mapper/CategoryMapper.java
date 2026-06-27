@@ -12,9 +12,7 @@ public class CategoryMapper {
         return new CategoryResponse(
                 category.getId(),
                 category.getName(),
-                category.getDescription(),
-                category.getSizeType(),
-                category.getSizeType().allowedSizes()
+                category.getDescription()
         );
     }
 }

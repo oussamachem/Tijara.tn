@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "product_variant",
         uniqueConstraints = @UniqueConstraint(name = "uk_variant_product_color_size",
-                columnNames = {"product_id", "color_id", "size"}))
+                columnNames = {"product_id", "color_id", "size_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -33,9 +33,10 @@ public class ProductVariant {
     @JoinColumn(name = "color_id", nullable = false)
     private Color color;
 
-    /** Taille (valeur du catalogue du SizeType de la categorie, ou UNI si NONE). */
-    @Column(nullable = false, length = 20)
-    private String size;
+    /** Taille de la variante : reference vers le catalogue Tailles gere (FK). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "size_id", nullable = false)
+    private Size size;
 
     /** Stock de cette declinaison (la quantite vit ICI, plus sur le produit). */
     @Column(nullable = false)
