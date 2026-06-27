@@ -33,6 +33,7 @@ class DayBoundaryTest extends AbstractPostgresIT {
     @Autowired private ProductVariantRepository variantRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private ColorRepository colorRepository;
+    @Autowired private SizeRepository sizeRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private SaleRepository saleRepository;
     @Autowired private ReturnRepository returnRepository;
@@ -48,9 +49,9 @@ class DayBoundaryTest extends AbstractPostgresIT {
         variantRepository.deleteAll();
         productRepository.deleteAll();
         adminId = userRepository.findByEmail("admin@smartboutique.com").orElseThrow().getId();
-        Category cat = Fixtures.category(categoryRepository, "Homme", SizeType.LETTER);
+        Category cat = Fixtures.category(categoryRepository, "Homme");
         Color color = Fixtures.color(colorRepository, "Bleu");
-        variantId = Fixtures.variant(productRepository, variantRepository, cat, color,
+        variantId = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat, color,
                 "BORDER", "M", 100, 0, "10.00").getId();
     }
 

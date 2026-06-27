@@ -30,6 +30,7 @@ class SaleConcurrencyTest extends AbstractPostgresIT {
     @Autowired private ProductVariantRepository variantRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private ColorRepository colorRepository;
+    @Autowired private SizeRepository sizeRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private SaleRepository saleRepository;
     @Autowired private ReturnRepository returnRepository;
@@ -47,9 +48,9 @@ class SaleConcurrencyTest extends AbstractPostgresIT {
         variantRepository.deleteAll();
         productRepository.deleteAll();
 
-        Category cat = Fixtures.category(categoryRepository, "Homme", SizeType.LETTER);
+        Category cat = Fixtures.category(categoryRepository, "Homme");
         Color color = Fixtures.color(colorRepository, "Bleu");
-        variantId = Fixtures.variant(productRepository, variantRepository, cat, color,
+        variantId = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat, color,
                 "REF-CONC", "M", INITIAL_STOCK, 0, "10.00").getId();
         sellerId = userRepository.findByEmail("admin@smartboutique.com").orElseThrow().getId();
     }
@@ -102,7 +103,7 @@ class SaleConcurrencyTest extends AbstractPostgresIT {
     void lastItem_twoThreads_onlyOneSucceeds() throws Exception {
         Category cat = categoryRepository.findByName("Homme").orElseThrow();
         Color color = Fixtures.color(colorRepository, "Rouge");
-        Long lastVariant = Fixtures.variant(productRepository, variantRepository, cat, color,
+        Long lastVariant = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat, color,
                 "REF-LAST", "L", 1, 0, "10.00").getId();
         sellOneConcurrently(lastVariant, 2, 1);
     }

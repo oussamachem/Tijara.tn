@@ -34,6 +34,7 @@ class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private ColorRepository colorRepository;
+    @Autowired private SizeRepository sizeRepository;
     @Autowired private ProductRepository productRepository;
     @Autowired private ProductVariantRepository variantRepository;
     @Autowired private SaleRepository saleRepository;
@@ -56,12 +57,12 @@ class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
         userRepository.findByEmail("seller2@smartboutique.com").ifPresent(userRepository::delete);
 
         adminId = userRepository.findByEmail("admin@smartboutique.com").orElseThrow().getId();
-        Category cat = Fixtures.category(categoryRepository, "Homme", SizeType.LETTER);
+        Category cat = Fixtures.category(categoryRepository, "Homme");
         Color bleu = Fixtures.color(colorRepository, "Bleu");
 
-        p1v = Fixtures.variant(productRepository, variantRepository, cat, bleu, "P1", "M", 10, 3, "50.00").getId();
-        p2v = Fixtures.variant(productRepository, variantRepository, cat, bleu, "P2", "M", 2, 5, "30.00").getId();
-        Fixtures.variant(productRepository, variantRepository, cat, bleu, "P3", "M", 0, 1, "20.00"); // rupture
+        p1v = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat, bleu, "P1", "M", 10, 3, "50.00").getId();
+        p2v = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat, bleu, "P2", "M", 2, 5, "30.00").getId();
+        Fixtures.variant(productRepository, variantRepository, sizeRepository, cat, bleu, "P3", "M", 0, 1, "20.00"); // rupture
 
         saleAId = sale(adminId, List.of(new SaleItemRequest(p1v, 2), new SaleItemRequest(p2v, 1))); // 130
         sale(adminId, List.of(new SaleItemRequest(p1v, 3)));                                         // 150

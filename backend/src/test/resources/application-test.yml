@@ -8,6 +8,8 @@ spring:
     open-in-view: false
 
 app:
+  # Images uploadees pendant les tests sous target/ (nettoye par mvn clean, hors sources).
+  uploads-dir: target/test-uploads
   seed:
     admin-email: admin@smartboutique.com
     admin-password: Admin@123

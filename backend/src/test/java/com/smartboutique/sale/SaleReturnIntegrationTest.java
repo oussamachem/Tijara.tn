@@ -35,6 +35,7 @@ class SaleReturnIntegrationTest extends AbstractPostgresIT {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private ColorRepository colorRepository;
+    @Autowired private SizeRepository sizeRepository;
     @Autowired private ProductRepository productRepository;
     @Autowired private ProductVariantRepository variantRepository;
     @Autowired private SaleRepository saleRepository;
@@ -50,9 +51,9 @@ class SaleReturnIntegrationTest extends AbstractPostgresIT {
         variantRepository.deleteAll();
         productRepository.deleteAll();
 
-        Category cat = Fixtures.category(categoryRepository, "Homme", SizeType.LETTER);
+        Category cat = Fixtures.category(categoryRepository, "Homme");
         Color bleu = Fixtures.color(colorRepository, "Bleu");
-        ProductVariant v = Fixtures.variant(productRepository, variantRepository, cat, bleu,
+        ProductVariant v = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat,bleu,
                 "REF-VENTE", "M", 10, 3, "50.00");
         variantId = v.getId();
         productId = v.getProduct().getId();
@@ -100,7 +101,7 @@ class SaleReturnIntegrationTest extends AbstractPostgresIT {
     void createSale_multiItem_rollbackOnFailure() throws Exception {
         Category cat = categoryRepository.findByName("Homme").orElseThrow();
         Color rouge = Fixtures.color(colorRepository, "Rouge");
-        Long vB = Fixtures.variant(productRepository, variantRepository, cat, rouge, "REF-B", "L", 2, 1, "30.00").getId();
+        Long vB = Fixtures.variant(productRepository, variantRepository, sizeRepository, cat,rouge, "REF-B", "L", 2, 1, "30.00").getId();
 
         mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON)
                         .content(json(sale(List.of(
@@ -197,8 +198,8 @@ class SaleReturnIntegrationTest extends AbstractPostgresIT {
     void lowStock_listing() throws Exception {
         Category cat = categoryRepository.findByName("Homme").orElseThrow();
         Color vert = Fixtures.color(colorRepository, "Vert");
-        Fixtures.variant(productRepository, variantRepository, cat, vert, "REF-LOW", "S", 2, 5, "10.00"); // sous seuil
-        Fixtures.variant(productRepository, variantRepository, cat, vert, "REF-RUPT", "L", 0, 1, "10.00"); // rupture
+        Fixtures.variant(productRepository, variantRepository, sizeRepository, cat,vert, "REF-LOW", "S", 2, 5, "10.00"); // sous seuil
+        Fixtures.variant(productRepository, variantRepository, sizeRepository, cat,vert, "REF-RUPT", "L", 0, 1, "10.00"); // rupture
         // REF-VENTE : 10 <= 3 ? non -> sain
 
         mockMvc.perform(get("/api/variants/low-stock"))
