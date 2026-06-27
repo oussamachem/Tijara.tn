@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback, Fragment } from 'react';
-import { productsApi, categoriesApi, colorsApi, variantsApi } from '../api/endpoints.js';
+import { Link } from 'react-router-dom';
+import { productsApi, categoriesApi, colorsApi, sizesApi, variantsApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
 import { Button, Field, Input, Textarea, Select, Card, Badge, Modal, Alert, Spinner, Pagination, ConfirmDialog } from '../components/ui.jsx';
 import { formatMoney } from '../utils/format.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
 const PAGE_SIZE = 10;
+const MAX_IMAGES = 6;
 
 function escapeHtml(v) {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -28,10 +30,11 @@ export default function Products() {
   const [createOpen, setCreateOpen] = useState(false);
   const [hdr, setHdr] = useState(emptyHeader);
   const [seuil, setSeuil] = useState(0);
-  const [availableSizes, setAvailableSizes] = useState([]);
-  const [pickedColors, setPickedColors] = useState([]); // colorIds
-  const [pickedSizes, setPickedSizes] = useState([]);
-  const [qtyMap, setQtyMap] = useState({}); // `${colorId}|${size}` -> qty
+  const [sizes, setSizes] = useState([]);             // catalogue Tailles global
+  const [pickedColors, setPickedColors] = useState([]); // colorIds (string)
+  const [pickedSizes, setPickedSizes] = useState([]);   // sizeIds (string)
+  const [qtyMap, setQtyMap] = useState({});   // `${colorId}|${sizeId}` -> qty
+  const [activeMap, setActiveMap] = useState({}); // `${colorId}|${sizeId}` -> bool (cellule cochee = variante)
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
 
@@ -44,8 +47,7 @@ export default function Products() {
   const [qrUrl, setQrUrl] = useState('');
 
   // Ajout variante (par produit)
-  const [addForm, setAddForm] = useState({ colorId: '', size: '', quantity: 0 });
-  const [addSizes, setAddSizes] = useState([]);
+  const [addForm, setAddForm] = useState({ colorId: '', sizeId: '', quantity: 0 });
 
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -71,6 +73,7 @@ export default function Products() {
   useEffect(() => {
     categoriesApi.list().then((r) => setCategories(r.data)).catch(() => {});
     colorsApi.list().then((r) => setColors(r.data)).catch(() => {});
+    sizesApi.list().then((r) => setSizes(r.data)).catch(() => {});
   }, []);
 
   const refresh = () => load();
@@ -79,19 +82,14 @@ export default function Products() {
 
   // ---------- Création ----------
   const openCreate = () => {
-    setHdr(emptyHeader); setSeuil(0); setAvailableSizes([]); setPickedColors([]); setPickedSizes([]); setQtyMap({});
+    setHdr(emptyHeader); setSeuil(0); setPickedColors([]); setPickedSizes([]); setQtyMap({}); setActiveMap({});
     setCreateError(''); setCreateOpen(true);
-  };
-  const onCategoryChange = async (categoryId) => {
-    setHdr((h) => ({ ...h, categoryId }));
-    setPickedSizes([]); setQtyMap({});
-    if (categoryId) {
-      try { const { data } = await categoriesApi.sizeOptions(categoryId); setAvailableSizes(data.sizes); }
-      catch { setAvailableSizes([]); }
-    } else setAvailableSizes([]);
   };
   const toggle = (list, setList, value) =>
     setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+  // Une cellule (couleur|taille) est active par defaut ; decochee = pas de variante.
+  const cellActive = (key) => activeMap[key] !== false;
+  const toggleCell = (key) => setActiveMap((m) => ({ ...m, [key]: m[key] === false }));
 
   const submitCreate = async (e) => {
     e.preventDefault();
@@ -101,10 +99,15 @@ export default function Products() {
     }
     setSaving(true); setCreateError('');
     try {
+      // On ne cree QUE les cellules cochees (tailles differentes par couleur possibles).
       const variants = [];
       for (const colorId of pickedColors)
-        for (const size of pickedSizes)
-          variants.push({ colorId: Number(colorId), size, quantity: Number(qtyMap[`${colorId}|${size}`] || 0), seuilAlerte: Number(seuil) || 0 });
+        for (const sizeId of pickedSizes) {
+          const key = `${colorId}|${sizeId}`;
+          if (!cellActive(key)) continue;
+          variants.push({ colorId: Number(colorId), sizeId: Number(sizeId), quantity: Number(qtyMap[key] || 0), seuilAlerte: Number(seuil) || 0 });
+        }
+      if (variants.length === 0) { setCreateError('Cochez au moins une cellule (couleur × taille).'); setSaving(false); return; }
       await productsApi.create({
         reference: hdr.reference, name: hdr.name, description: hdr.description,
         categoryId: Number(hdr.categoryId), purchasePrice: Number(hdr.purchasePrice),
@@ -133,10 +136,25 @@ export default function Products() {
     } catch (err) { setError(apiError(err)); }
     finally { setSaving(false); }
   };
-  const handleImage = async (e, productId) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try { await productsApi.uploadImage(productId, file); setNotice('Image mise à jour.'); load(); }
+  // ---------- Galerie photos (produit en édition) ----------
+  const refreshEdit = async (id) => { const { data } = await productsApi.get(id); setEditProduct(data); load(); };
+  const addImages = async (e) => {
+    const files = e.target.files;
+    if (!files?.length || !editProduct) return;
+    try { await productsApi.uploadImages(editProduct.id, files); await refreshEdit(editProduct.id); setNotice('Photo(s) ajoutée(s).'); }
+    catch (err) { setError(apiError(err)); }      // 400 si plafond/type
+    finally { e.target.value = ''; }
+  };
+  const removeImage = async (imageId) => {
+    try { await productsApi.deleteImage(editProduct.id, imageId); await refreshEdit(editProduct.id); }
+    catch (err) { setError(apiError(err)); }
+  };
+  const moveImage = async (index, dir) => {
+    const imgs = editProduct.images; const j = index + dir;
+    if (j < 0 || j >= imgs.length) return;
+    const ids = imgs.map((im) => im.id);
+    [ids[index], ids[j]] = [ids[j], ids[index]];
+    try { await productsApi.reorderImages(editProduct.id, ids); await refreshEdit(editProduct.id); }
     catch (err) { setError(apiError(err)); }
   };
 
@@ -149,15 +167,13 @@ export default function Products() {
     try { await variantsApi.remove(variantId); setNotice('Variante supprimée.'); load(); }
     catch (err) { setError(apiError(err)); } // 409 si dernière / déjà vendue
   };
-  const openAddVariant = async (product) => {
-    setAddForm({ colorId: '', size: '', quantity: 0 });
-    try { const { data } = await categoriesApi.sizeOptions(product.categoryId); setAddSizes(data.sizes); }
-    catch { setAddSizes([]); }
+  const openAddVariant = () => {
+    setAddForm({ colorId: '', sizeId: '', quantity: 0 });
   };
   const submitAddVariant = async (productId) => {
     try {
-      await productsApi.addVariant(productId, { colorId: Number(addForm.colorId), size: addForm.size, quantity: Number(addForm.quantity), seuilAlerte: 0 });
-      setNotice('Variante ajoutée.'); setAddForm({ colorId: '', size: '', quantity: 0 }); load();
+      await productsApi.addVariant(productId, { colorId: Number(addForm.colorId), sizeId: Number(addForm.sizeId), quantity: Number(addForm.quantity), seuilAlerte: 0 });
+      setNotice('Variante ajoutée.'); setAddForm({ colorId: '', sizeId: '', quantity: 0 }); load();
     } catch (err) { setError(apiError(err)); }
   };
 
@@ -245,7 +261,14 @@ export default function Products() {
                         </button>
                       </td>
                       <td className="py-2 font-mono text-xs">{p.reference}</td>
-                      <td className="py-2">{p.name}</td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2">
+                          {p.imageUrl
+                            ? <img src={`${API_URL}${p.imageUrl}`} alt="" className="h-8 w-8 rounded object-cover" />
+                            : <div className="flex h-8 w-8 items-center justify-center rounded bg-slate-100 text-xs text-slate-300">📷</div>}
+                          {p.name}
+                        </div>
+                      </td>
                       <td className="py-2 text-slate-500">{p.categoryName || '—'}</td>
                       <td className="py-2 text-right">{formatMoney(p.salePrice)}</td>
                       <td className="py-2 text-right">{p.lowStock ? <Badge color="amber">{p.totalStock}</Badge> : p.totalStock}</td>
@@ -287,15 +310,15 @@ export default function Products() {
                                 </Select>
                               </Field>
                               <Field label="Taille">
-                                <Select value={addForm.size} onChange={(e) => setAddForm({ ...addForm, size: e.target.value })} className="w-28">
+                                <Select value={addForm.sizeId} onChange={(e) => setAddForm({ ...addForm, sizeId: e.target.value })} className="w-28">
                                   <option value="">—</option>
-                                  {addSizes.map((s) => <option key={s} value={s}>{s}</option>)}
+                                  {sizes.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                                 </Select>
                               </Field>
                               <Field label="Stock">
                                 <Input type="number" min="0" value={addForm.quantity} onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })} className="w-24" />
                               </Field>
-                              <Button type="button" variant="secondary" disabled={!addForm.colorId || !addForm.size} onClick={() => submitAddVariant(p.id)}>+ Variante</Button>
+                              <Button type="button" variant="secondary" disabled={!addForm.colorId || !addForm.sizeId} onClick={() => submitAddVariant(p.id)}>+ Variante</Button>
                             </div>
                           </div>
                         </td>
@@ -320,7 +343,7 @@ export default function Products() {
             <Field label="Référence" required><Input value={hdr.reference} onChange={(e) => setHdr({ ...hdr, reference: e.target.value })} required /></Field>
             <Field label="Nom" required><Input value={hdr.name} onChange={(e) => setHdr({ ...hdr, name: e.target.value })} required /></Field>
             <Field label="Catégorie" required>
-              <Select value={hdr.categoryId} onChange={(e) => onCategoryChange(e.target.value)} required>
+              <Select value={hdr.categoryId} onChange={(e) => setHdr({ ...hdr, categoryId: e.target.value })} required>
                 <option value="">— Choisir —</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
@@ -346,32 +369,45 @@ export default function Products() {
               </div>
               <div>
                 <div className="mb-1 text-sm font-medium text-slate-700">Tailles</div>
-                <div className="flex flex-wrap gap-2">
-                  {availableSizes.map((s) => (
-                    <button type="button" key={s} onClick={() => toggle(pickedSizes, setPickedSizes, s)}
-                      className={`rounded-lg border px-3 py-1 text-sm ${pickedSizes.includes(s) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-300 text-slate-600'}`}>{s}</button>
-                  ))}
-                </div>
+                {sizes.length === 0 ? (
+                  <p className="text-sm text-slate-500">Aucune taille. <Link to="/tailles" className="font-medium text-brand-600 hover:underline">Créez-en dans la section Tailles.</Link></p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {sizes.map((s) => (
+                      <button type="button" key={s.id} onClick={() => toggle(pickedSizes, setPickedSizes, String(s.id))}
+                        className={`rounded-lg border px-3 py-1 text-sm ${pickedSizes.includes(String(s.id)) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-300 text-slate-600'}`}>{s.label}</button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {pickedColors.length > 0 && pickedSizes.length > 0 && (
                 <div className="overflow-x-auto">
-                  <div className="mb-1 text-sm font-medium text-slate-700">Stock par variante</div>
+                  <div className="mb-1 text-sm font-medium text-slate-700">
+                    Matrice (décochez une cellule pour ne pas créer cette déclinaison)
+                  </div>
                   <table className="text-sm">
                     <thead>
-                      <tr><th className="p-1"></th>{pickedSizes.map((s) => <th key={s} className="p-1 text-center text-slate-500">{s}</th>)}</tr>
+                      <tr><th className="p-1"></th>{pickedSizes.map((sid) => <th key={sid} className="p-1 text-center text-slate-500">{sizes.find((s) => String(s.id) === sid)?.label}</th>)}</tr>
                     </thead>
                     <tbody>
                       {pickedColors.map((cid) => (
                         <tr key={cid}>
                           <td className="p-1 font-medium">{colors.find((c) => String(c.id) === cid)?.name}</td>
-                          {pickedSizes.map((s) => (
-                            <td key={s} className="p-1">
-                              <input type="number" min="0" value={qtyMap[`${cid}|${s}`] || 0}
-                                onChange={(e) => setQtyMap({ ...qtyMap, [`${cid}|${s}`]: e.target.value })}
-                                className="w-16 rounded border border-slate-300 px-2 py-1 text-center" />
-                            </td>
-                          ))}
+                          {pickedSizes.map((sid) => {
+                            const key = `${cid}|${sid}`;
+                            const active = cellActive(key);
+                            return (
+                              <td key={sid} className="p-1">
+                                <div className={`flex items-center gap-1 rounded border px-1 py-1 ${active ? 'border-brand-200 bg-brand-50/40' : 'border-slate-200 bg-slate-50'}`}>
+                                  <input type="checkbox" checked={active} onChange={() => toggleCell(key)} title="Créer cette variante" />
+                                  <input type="number" min="0" value={qtyMap[key] || 0} disabled={!active}
+                                    onChange={(e) => setQtyMap({ ...qtyMap, [key]: e.target.value })}
+                                    className="w-14 rounded border border-slate-300 px-1 py-0.5 text-center disabled:bg-slate-100 disabled:text-slate-300" />
+                                </div>
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>
@@ -401,13 +437,36 @@ export default function Products() {
             <Field label="Prix de vente" required><Input type="number" step="0.01" min="0" value={editHdr.salePrice} onChange={(e) => setEditHdr({ ...editHdr, salePrice: e.target.value })} required /></Field>
             <div className="md:col-span-2"><Field label="Description"><Textarea rows={2} value={editHdr.description} onChange={(e) => setEditHdr({ ...editHdr, description: e.target.value })} /></Field></div>
             <div className="md:col-span-2 rounded-lg border border-slate-200 p-3">
-              <div className="mb-2 text-sm font-medium text-slate-600">Image du produit</div>
-              <div className="flex items-center gap-4">
-                {editProduct.imageUrl
-                  ? <img src={`${API_URL}${editProduct.imageUrl}`} alt="" className="h-20 w-20 rounded object-cover" />
-                  : <div className="flex h-20 w-20 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">Aucune</div>}
-                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleImage(e, editProduct.id)} className="text-sm" />
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-600">Photos ({editProduct.images.length}/{MAX_IMAGES})</span>
+                <label className={`rounded-lg px-3 py-1.5 text-sm font-medium ${editProduct.images.length >= MAX_IMAGES ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'cursor-pointer bg-brand-600 text-white hover:bg-brand-700'}`}>
+                  + Ajouter des photos
+                  <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden"
+                    disabled={editProduct.images.length >= MAX_IMAGES} onChange={addImages} />
+                </label>
               </div>
+              {editProduct.images.length === 0 ? (
+                <p className="text-sm text-slate-400">Aucune photo. La première ajoutée devient la couverture.</p>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  {editProduct.images.map((img, i) => (
+                    <div key={img.id} className="w-24">
+                      <div className="relative">
+                        <img src={`${API_URL}${img.url}`} alt="" className="h-24 w-24 rounded border border-slate-200 object-cover" />
+                        {i === 0 && <span className="absolute left-1 top-1 rounded bg-brand-600 px-1 text-[10px] font-semibold text-white">Couverture</span>}
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} className="rounded px-1 text-slate-500 disabled:opacity-30" title="Reculer">◀</button>
+                          <button type="button" onClick={() => moveImage(i, 1)} disabled={i === editProduct.images.length - 1} className="rounded px-1 text-slate-500 disabled:opacity-30" title="Avancer">▶</button>
+                        </div>
+                        <button type="button" onClick={() => removeImage(img.id)} className="rounded px-1 text-red-500 hover:bg-red-50" title="Supprimer">🗑️</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-2 text-xs text-slate-400">La couverture (1ʳᵉ position) est l'image affichée en liste et sur le mobile.</p>
             </div>
           </form>
         )}

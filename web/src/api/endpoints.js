@@ -15,7 +15,6 @@ export const dashboardApi = {
 // -------------------------------- Catégories ---------------------------------
 export const categoriesApi = {
   list: () => client.get('/api/categories'),
-  sizeOptions: (id) => client.get(`/api/categories/${id}/size-options`),
   create: (payload) => client.post('/api/admin/categories', payload),
   update: (id, payload) => client.put(`/api/admin/categories/${id}`, payload),
   remove: (id) => client.delete(`/api/admin/categories/${id}`),
@@ -29,6 +28,14 @@ export const colorsApi = {
   remove: (id) => client.delete(`/api/admin/colors/${id}`),
 };
 
+// ---------------------------------- Tailles ----------------------------------
+export const sizesApi = {
+  list: () => client.get('/api/sizes'),
+  create: (payload) => client.post('/api/admin/sizes', payload),
+  update: (id, payload) => client.put(`/api/admin/sizes/${id}`, payload),
+  remove: (id) => client.delete(`/api/admin/sizes/${id}`),
+};
+
 // --------------------------------- Produits ----------------------------------
 export const productsApi = {
   search: (params) => client.get('/api/products', { params }),
@@ -38,13 +45,16 @@ export const productsApi = {
   updateHeader: (id, payload) => client.put(`/api/admin/products/${id}`, payload),
   remove: (id) => client.delete(`/api/admin/products/${id}`),
   addVariant: (id, payload) => client.post(`/api/admin/products/${id}/variants`, payload),
-  uploadImage: (id, file) => {
+  // Galerie photos (produit) : upload multiple, suppression, réordonnancement (position 0 = couverture).
+  uploadImages: (id, files) => {
     const form = new FormData();
-    form.append('file', file);
-    return client.post(`/api/admin/products/${id}/image`, form, {
+    Array.from(files).forEach((f) => form.append('files', f));
+    return client.post(`/api/admin/products/${id}/images`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  deleteImage: (id, imageId) => client.delete(`/api/admin/products/${id}/images/${imageId}`),
+  reorderImages: (id, imageIds) => client.put(`/api/admin/products/${id}/images/order`, { imageIds }),
 };
 
 // --------------------------------- Variantes ---------------------------------
