@@ -32,7 +32,7 @@ public class SaleMapper {
         );
     }
 
-    private SaleItemResponse toItemResponse(SaleItem item) {
+    public SaleItemResponse toItemResponse(SaleItem item) {
         return new SaleItemResponse(
                 item.getId(),
                 item.getVariant() != null ? item.getVariant().getId() : null,
