@@ -11,3 +11,36 @@ body,
 body {
   @apply bg-slate-100 text-slate-800 antialiased;
 }
+
+/* ----------- Impression en masse des etiquettes QR (feat/qr-bulk-print) ----------- */
+/* Grille d'etiquettes : taille uniforme, espacement regulier. */
+.qr-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.qr-label {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 4px;
+  text-align: center;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: #fff;
+}
+.qr-shop { font-size: 9px; font-weight: 700; color: #334155; }
+.qr-img { width: 100%; max-width: 110px; aspect-ratio: 1 / 1; margin: 3px auto; display: block; }
+.qr-ref { font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; word-break: break-all; }
+.qr-name { font-size: 10px; color: #334155; }
+.qr-attrs { font-size: 9px; color: #64748b; }
+
+/* Le portail d'impression est masque a l'ecran ; revele uniquement a l'impression. */
+.qr-print-portal { display: none; }
+
+@media print {
+  /* On masque toute l'application : seul le portail d'etiquettes est imprime. */
+  #root { display: none !important; }
+  .qr-print-portal { display: block !important; }
+  .qr-label { break-inside: avoid; page-break-inside: avoid; }
+  .qr-img { max-width: 32mm; }
+  @page { margin: 10mm; }
+}

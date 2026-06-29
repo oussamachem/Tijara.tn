@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { productsApi, categoriesApi, colorsApi, sizesApi, variantsApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
 import { Button, Field, Input, Textarea, Select, Card, Badge, Modal, Alert, Spinner, Pagination, ConfirmDialog } from '../components/ui.jsx';
+import BulkQrPrint from '../components/BulkQrPrint.jsx';
 import { formatMoney } from '../utils/format.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -51,6 +52,9 @@ export default function Products() {
 
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Impression en masse des QR (étiquettes par unité)
+  const [printProduct, setPrintProduct] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -275,6 +279,7 @@ export default function Products() {
                       <td className="py-2 text-right text-slate-500">{p.variants.length}</td>
                       <td className="py-2">
                         <div className="flex justify-end gap-1">
+                          <Button variant="ghost" onClick={() => setPrintProduct(p)} title="Imprimer les QR Codes (1 par unité en stock)">🏷️</Button>
                           <Button variant="ghost" onClick={() => openEdit(p)} title="Modifier l'entête">✏️</Button>
                           <Button variant="ghost" onClick={() => setToDelete(p)} title="Supprimer">🗑️</Button>
                         </div>
@@ -485,6 +490,8 @@ export default function Products() {
       <ConfirmDialog open={!!toDelete} title="Supprimer le produit"
         message={`Supprimer « ${toDelete?.name} » et toutes ses variantes ? (impossible si déjà vendu)`}
         confirmLabel="Supprimer" onConfirm={confirmDelete} onCancel={() => setToDelete(null)} loading={deleting} />
+
+      {printProduct && <BulkQrPrint product={printProduct} onClose={() => setPrintProduct(null)} />}
     </div>
   );
 }
