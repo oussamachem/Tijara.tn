@@ -33,8 +33,28 @@ body {
 .qr-name { font-size: 10px; color: #334155; }
 .qr-attrs { font-size: 9px; color: #64748b; }
 
-/* Le portail d'impression est masque a l'ecran ; revele uniquement a l'impression. */
+/* Les portails d'impression sont masques a l'ecran ; reveles uniquement a l'impression. */
 .qr-print-portal { display: none; }
+.qr-thermal-portal { display: none; }
+
+/* ----- Mode THERMIQUE : une etiquette = une page (rouleau continu, CD410-U) ----- */
+/* Etiquette : QR centre + reference (+ couleur.taille / nom selon la hauteur). */
+.qr-thermal-label {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5mm;
+  padding: 1mm;
+  overflow: hidden;
+  background: #fff;
+  text-align: center;
+}
+.qr-thermal-label img { image-rendering: pixelated; }   /* modules QR nets a l'agrandissement */
+.qr-t-ref { font-family: ui-monospace, monospace; font-weight: 700; line-height: 1.05; }
+.qr-t-attrs { color: #222; line-height: 1.05; }
+.qr-t-name { color: #555; line-height: 1.05; }
 
 @media print {
   /* On masque toute l'application : seul le portail d'etiquettes est imprime. */
@@ -42,5 +62,6 @@ body {
   .qr-print-portal { display: block !important; }
   .qr-label { break-inside: avoid; page-break-inside: avoid; }
   .qr-img { max-width: 32mm; }
-  @page { margin: 10mm; }
+  /* Mode thermique : chaque etiquette occupe une page entiere et force un saut. */
+  .qr-thermal-label { break-after: page; page-break-after: always; break-inside: avoid; }
 }

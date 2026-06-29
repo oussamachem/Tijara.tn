@@ -64,5 +64,26 @@ Liste et recherche des produits avec quantité et état (OK / sous seuil / ruptu
 
 ---
 
+## Impression des QR Codes (étiquettes)
+
+Dans **Produits**, l'icône 🏷️ (colonne Actions) ouvre l'aperçu d'impression : **une étiquette par unité en stock** (stock total = somme des stocks des variantes ; une variante en rupture n'imprime rien).
+
+### Mode thermique (imprimante à étiquettes, ex. CD410-U) — par défaut
+- Régler **Largeur** et **Hauteur (mm)** à la taille exacte de l'étiquette du rouleau (défaut **50 × 40 mm**, mémorisé pour la prochaine fois).
+- Chaque étiquette = **une page** (QR centré + référence variante, + couleur·taille si la hauteur le permet). Cliquer **Imprimer** → choisir l'imprimante thermique → **toutes les étiquettes sortent à la suite** dans un seul travail, le rouleau avançant étiquette par étiquette.
+
+### Mode feuille A4
+Grille multi-étiquettes pour une imprimante bureautique classique (boutique + référence + nom + couleur·taille + QR).
+
+### Calibration de l'imprimante thermique (à faire une fois, côté poste)
+1. Installer le **pilote CD410-U** (USB).
+2. Dans les **propriétés du pilote**, définir la **taille d'étiquette** identique à celle saisie dans l'écran (largeur × hauteur), marges à 0, et le type **rouleau continu / étiquette**.
+3. Définir l'imprimante thermique comme **imprimante par défaut** (ou la choisir dans le dialogue).
+4. L'application produit des **pages à la dimension exacte** ; le pilote gère l'avance du papier. Le contenu du QR (référence variante) est **inchangé** : une étiquette imprimée se scanne comme avant pour la vente.
+
+> Le dialogue d'impression du navigateur s'affiche **une fois** par lot (sécurité navigateur). Pour une impression 100 % sans dialogue, un agent local type **QZ Tray** serait nécessaire (installation sur le poste) — non activé par défaut.
+
+---
+
 ## Compte administrateur par défaut
 `admin@smartboutique.com` / mot de passe défini au déploiement (`ADMIN_PASSWORD`). **À changer après la première connexion.**
