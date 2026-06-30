@@ -14,6 +14,10 @@ spring:
     enabled: true
 
 server:
+  # Derriere un reverse proxy / tunnel (nginx, Cloudflare) : honore X-Forwarded-Proto/Host
+  # pour que le backend reconstruise l'URL publique (https://<hote-public>) -> les requetes
+  # front->API sont vues comme MEME ORIGINE (pas de faux rejet CORS), redirections correctes.
+  forward-headers-strategy: framework
   error:
     # Pas de fuite de stack trace ni de details internes dans les reponses HTTP.
     include-stacktrace: never
