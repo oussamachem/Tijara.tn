@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { variantsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
@@ -11,6 +12,7 @@ import { colors } from '../theme';
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
 
   const [scanned, setScanned] = useState(false); // true = scan suspendu (anti-rebond)
   const [resolving, setResolving] = useState(false);
@@ -89,7 +91,7 @@ export default function ScanScreen() {
 
       {/* Bandeau d'état (résolution / erreur / réarmement) */}
       {(resolving || message || (scanned && !sheetVisible)) && (
-        <View style={styles.statusBar}>
+        <View style={[styles.statusBar, { bottom: insets.bottom + 16 }]}>
           {resolving ? (
             <View style={styles.statusRow}>
               <ActivityIndicator color="#fff" />

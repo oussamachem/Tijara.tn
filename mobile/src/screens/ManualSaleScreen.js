@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { productsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
 import { AppButton, AppTextInput, Badge, ErrorBanner } from '../components';
@@ -15,6 +15,7 @@ const toLine = (p, v) => ({
 });
 
 export default function ManualSaleScreen() {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +58,7 @@ export default function ManualSaleScreen() {
       <FlatList
         data={results}
         keyExtractor={(item) => String(item.id)}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, gap: 10 }}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => setPicker(item)} activeOpacity={0.7}>
@@ -76,19 +78,22 @@ export default function ManualSaleScreen() {
       {/* Sélecteur de variante */}
       <Modal visible={!!picker} transparent animationType="slide" onRequestClose={() => setPicker(null)}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setPicker(null)}>
-          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
+          <TouchableOpacity activeOpacity={1} style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.pickerTitle}>{picker?.name}</Text>
             <Text style={styles.pickerSub}>Choisissez la déclinaison</Text>
-            {picker?.variants.map((v) => (
-              <TouchableOpacity key={v.id} style={styles.variantRow} onPress={() => pickVariant(v)}
-                disabled={v.quantity <= 0} activeOpacity={0.7}>
-                <View style={[styles.swatch, { backgroundColor: v.colorHex || '#fff' }]} />
-                <Text style={styles.variantText}>{v.colorName} · {v.size}</Text>
-                {v.quantity <= 0
-                  ? <Badge text="Rupture" color={colors.danger} />
-                  : <Badge text={`Stock ${v.quantity}`} color={colors.success} />}
-              </TouchableOpacity>
-            ))}
+            {/* Scrollable : un produit peut avoir beaucoup de variantes sur petit écran. */}
+            <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }}>
+              {picker?.variants.map((v) => (
+                <TouchableOpacity key={v.id} style={styles.variantRow} onPress={() => pickVariant(v)}
+                  disabled={v.quantity <= 0} activeOpacity={0.7}>
+                  <View style={[styles.swatch, { backgroundColor: v.colorHex || '#fff' }]} />
+                  <Text style={styles.variantText}>{v.colorName} · {v.size}</Text>
+                  {v.quantity <= 0
+                    ? <Badge text="Rupture" color={colors.danger} />
+                    : <Badge text={`Stock ${v.quantity}`} color={colors.success} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
             <View style={{ height: 6 }} />
             <AppButton title="Fermer" variant="secondary" onPress={() => setPicker(null)} />
           </TouchableOpacity>

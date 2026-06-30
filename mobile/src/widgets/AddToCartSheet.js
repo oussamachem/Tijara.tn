@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../cart/CartContext';
 import { AppButton, Badge, QtyStepper } from '../components';
 import { colors } from '../theme';
@@ -11,6 +12,7 @@ import { formatMoney } from '../utils/format';
  */
 export default function AddToCartSheet({ variant, visible, onClose }) {
   const { add } = useCart();
+  const insets = useSafeAreaInsets();
   const [qty, setQty] = useState(1);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function AddToCartSheet({ variant, visible, onClose }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={() => onClose(false)}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => onClose(false)}>
-        <TouchableOpacity activeOpacity={1} style={styles.sheet}>
+        <TouchableOpacity activeOpacity={1} style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
           <Text style={styles.name}>{variant.productName}</Text>
           <Text style={styles.decl}>{variant.colorName} · taille {variant.size}</Text>
           <Text style={styles.ref}>{variant.variantReference}</Text>
