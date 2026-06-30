@@ -77,6 +77,23 @@ export const sellersApi = {
   deactivate: (id) => client.patch(`/api/admin/sellers/${id}/deactivate`),
 };
 
+// --------------------------------- Clients -----------------------------------
+export const customersApi = {
+  list: () => client.get('/api/admin/customers'),
+  create: (payload) => client.post('/api/admin/customers', payload),
+  update: (id, payload) => client.put(`/api/admin/customers/${id}`, payload),
+};
+
+// --------------------------------- Crédits -----------------------------------
+export const creditsApi = {
+  list: (params) => client.get('/api/admin/credits', { params }),
+  get: (id) => client.get(`/api/admin/credits/${id}`),
+  create: (payload) => client.post('/api/admin/credits', payload),
+  pay: (id, payload) => client.post(`/api/admin/credits/${id}/payments`, payload),
+  cancel: (id) => client.post(`/api/admin/credits/${id}/cancel`),
+  dashboard: () => client.get('/api/admin/credits/dashboard'),
+};
+
 // ------------------------------ Ventes / Retours -----------------------------
 export const salesApi = {
   history: (params) => client.get('/api/admin/sales', { params }),

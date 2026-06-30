@@ -12,6 +12,8 @@ import Sizes from './pages/Sizes.jsx';
 import Sellers from './pages/Sellers.jsx';
 import SalesHistory from './pages/SalesHistory.jsx';
 import SaleDetail from './pages/SaleDetail.jsx';
+import Credits from './pages/Credits.jsx';
+import CreditDetail from './pages/CreditDetail.jsx';
 
 export default function App() {
   return (
@@ -37,6 +39,8 @@ export default function App() {
         <Route path="/vendeurs" element={<Sellers />} />
         <Route path="/historique" element={<SalesHistory />} />
         <Route path="/ventes/:id" element={<SaleDetail />} />
+        <Route path="/credits" element={<Credits />} />
+        <Route path="/credits/:id" element={<CreditDetail />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
