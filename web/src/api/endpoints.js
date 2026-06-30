@@ -94,6 +94,23 @@ export const creditsApi = {
   dashboard: () => client.get('/api/admin/credits/dashboard'),
 };
 
+// ------------------------------ Fournisseurs ---------------------------------
+export const suppliersApi = {
+  list: () => client.get('/api/admin/suppliers'),
+  create: (payload) => client.post('/api/admin/suppliers', payload),
+  update: (id, payload) => client.put(`/api/admin/suppliers/${id}`, payload),
+};
+
+// --------------------------- Dettes fournisseurs -----------------------------
+export const debtsApi = {
+  list: (params) => client.get('/api/admin/debts', { params }),
+  get: (id) => client.get(`/api/admin/debts/${id}`),
+  create: (payload) => client.post('/api/admin/debts', payload),
+  pay: (id, payload) => client.post(`/api/admin/debts/${id}/payments`, payload),
+  remove: (id) => client.delete(`/api/admin/debts/${id}`),
+  dashboard: () => client.get('/api/admin/debts/dashboard'),
+};
+
 // ------------------------------ Ventes / Retours -----------------------------
 export const salesApi = {
   history: (params) => client.get('/api/admin/sales', { params }),

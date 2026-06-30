@@ -14,6 +14,8 @@ import SalesHistory from './pages/SalesHistory.jsx';
 import SaleDetail from './pages/SaleDetail.jsx';
 import Credits from './pages/Credits.jsx';
 import CreditDetail from './pages/CreditDetail.jsx';
+import SupplierDebts from './pages/SupplierDebts.jsx';
+import DebtDetail from './pages/DebtDetail.jsx';
 
 export default function App() {
   return (
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="/ventes/:id" element={<SaleDetail />} />
         <Route path="/credits" element={<Credits />} />
         <Route path="/credits/:id" element={<CreditDetail />} />
+        <Route path="/dettes" element={<SupplierDebts />} />
+        <Route path="/dettes/:id" element={<DebtDetail />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
