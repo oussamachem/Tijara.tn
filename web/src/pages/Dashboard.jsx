@@ -86,7 +86,8 @@ export default function Dashboard() {
           {data.topSellingProducts.length === 0 ? (
             <p className="text-sm text-slate-400">Aucune vente enregistrée.</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
                   <th className="pb-2">Produit</th>
@@ -106,6 +107,7 @@ export default function Dashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
       </div>
@@ -114,7 +116,8 @@ export default function Dashboard() {
         {lowStock.length === 0 ? (
           <p className="text-sm text-slate-400">Aucune variante en alerte. 👍</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="pb-2">Produit</th>
@@ -140,6 +143,7 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>

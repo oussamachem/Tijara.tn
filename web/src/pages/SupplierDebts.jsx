@@ -62,11 +62,11 @@ export default function SupplierDebts() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-bold text-slate-800">Dettes fournisseurs</h2>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setSuppliersOpen(true)}>Fournisseurs</Button>
-          <Button onClick={() => setCreateOpen(true)}>+ Nouvelle dette</Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="secondary" onClick={() => setSuppliersOpen(true)} className="w-full sm:w-auto">Fournisseurs</Button>
+          <Button onClick={() => setCreateOpen(true)} className="w-full sm:w-auto">+ Nouvelle dette</Button>
         </div>
       </div>
 
