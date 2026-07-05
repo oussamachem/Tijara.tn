@@ -57,7 +57,7 @@ class DayBoundaryTest extends AbstractPostgresIT {
 
     private Long sell() {
         return saleService.createSale(
-                new SaleRequest(List.of(new SaleItemRequest(variantId, 1)), PaymentMethod.ESPECES, null),
+                new SaleRequest(List.of(new SaleItemRequest(variantId, 1)), PaymentMethod.ESPECES, null, null),
                 adminId).id();
     }
 

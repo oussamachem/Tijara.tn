@@ -48,7 +48,7 @@ public class CreditService {
         //    Stock insuffisant -> 409 leve par SaleService -> rollback de TOUT (rien n'est cree).
         PaymentMethod method = request.paymentMethod() != null ? request.paymentMethod() : PaymentMethod.ESPECES;
         SaleResponse sale = saleService.createSale(
-                new SaleRequest(request.items(), method, request.discount()), adminId);
+                new SaleRequest(request.items(), method, request.discount(), null), adminId);
         Sale saleEntity = saleRepository.findById(sale.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Vente", sale.id()));
 

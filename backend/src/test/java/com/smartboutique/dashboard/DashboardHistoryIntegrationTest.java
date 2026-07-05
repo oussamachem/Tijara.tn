@@ -70,7 +70,7 @@ class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
     }
 
     private Long sale(Long sellerId, List<SaleItemRequest> items) {
-        SaleResponse r = saleService.createSale(new SaleRequest(items, PaymentMethod.ESPECES, null), sellerId);
+        SaleResponse r = saleService.createSale(new SaleRequest(items, PaymentMethod.ESPECES, null, null), sellerId);
         return r.id();
     }
 

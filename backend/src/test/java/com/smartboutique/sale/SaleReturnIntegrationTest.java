@@ -68,7 +68,7 @@ class SaleReturnIntegrationTest extends AbstractPostgresIT {
     }
 
     private SaleRequest sale(List<SaleItemRequest> items, String discount) {
-        return new SaleRequest(items, PaymentMethod.ESPECES, discount == null ? null : new BigDecimal(discount));
+        return new SaleRequest(items, PaymentMethod.ESPECES, discount == null ? null : new BigDecimal(discount), null);
     }
 
     @Test

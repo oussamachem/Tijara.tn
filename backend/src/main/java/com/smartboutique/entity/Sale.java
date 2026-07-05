@@ -53,9 +53,19 @@ public class Sale {
     @Builder.Default
     private List<SaleItem> items = new ArrayList<>();
 
+    /** Lignes de paiement (tenders) : especes/carte/ticket cadeau, combinables. */
+    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<SalePayment> payments = new ArrayList<>();
+
     /** Ajoute une ligne en maintenant la coherence de la relation bidirectionnelle. */
     public void addItem(SaleItem item) {
         items.add(item);
         item.setSale(this);
+    }
+
+    public void addPayment(SalePayment payment) {
+        payments.add(payment);
+        payment.setSale(this);
     }
 }

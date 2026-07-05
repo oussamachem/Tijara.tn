@@ -2,21 +2,27 @@ package com.smartboutique.service;
 
 import com.smartboutique.dto.PageResponse;
 import com.smartboutique.dto.SaleItemRequest;
+import com.smartboutique.dto.SalePaymentRequest;
 import com.smartboutique.dto.SaleRequest;
 import com.smartboutique.dto.SaleResponse;
 import com.smartboutique.dto.SaleSummaryResponse;
+import com.smartboutique.entity.PaymentMethod;
 import com.smartboutique.entity.ProductVariant;
 import com.smartboutique.entity.Sale;
 import com.smartboutique.entity.SaleItem;
+import com.smartboutique.entity.SalePayment;
+import com.smartboutique.entity.TenderMethod;
 import com.smartboutique.entity.User;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.SaleMapper;
 import com.smartboutique.repository.ProductVariantRepository;
+import com.smartboutique.repository.SalePaymentRepository;
 import com.smartboutique.repository.SaleRepository;
 import com.smartboutique.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -26,8 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Gestion des ventes (au grain VARIANTE depuis la Phase 9).
@@ -52,7 +61,12 @@ public class SaleService {
     private final SaleRepository saleRepository;
     private final ProductVariantRepository variantRepository;
     private final UserRepository userRepository;
+    private final SalePaymentRepository salePaymentRepository;
     private final SaleMapper saleMapper;
+
+    /** Denominations autorisees pour les tickets cadeaux (constante configurable, MVP). */
+    @Value("${app.gift-ticket-denominations:10,20,50}")
+    private String denominationsCsv;
 
     @Transactional
     public SaleResponse createSale(SaleRequest request, Long sellerId) {
@@ -61,7 +75,6 @@ public class SaleService {
 
         Sale sale = Sale.builder()
                 .seller(seller)
-                .paymentMethod(request.paymentMethod())
                 .build();
 
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -115,10 +128,94 @@ public class SaleService {
         sale.setDiscount(discount);
         sale.setTotalAmount(total);
 
+        // Paiement : liste de tenders (especes/carte/ticket cadeau) validee et figee sur la vente.
+        applyTenders(sale, request, total);
+
         Sale saved = saleRepository.save(sale);
-        log.info("Vente id={} enregistree par {} : {} ligne(s), total {}",
-                saved.getId(), seller.getEmail(), saved.getItems().size(), total);
+        log.info("Vente id={} enregistree par {} : {} ligne(s), total {}, {} tender(s)",
+                saved.getId(), seller.getEmail(), saved.getItems().size(), total, saved.getPayments().size());
         return saleMapper.toResponse(saved);
+    }
+
+    /**
+     * Valide et attache les tenders. Le stock et le CA restent inchanges : le ticket cadeau
+     * n'est qu'un mode de reglement (CA = prix des articles).
+     */
+    private void applyTenders(Sale sale, SaleRequest request, BigDecimal total) {
+        List<SalePaymentRequest> tenders = request.payments();
+
+        // Retro-compatibilite : pas de liste -> un seul tender deduit du paymentMethod.
+        if (tenders == null || tenders.isEmpty()) {
+            PaymentMethod pm = request.paymentMethod();
+            if (pm == null) {
+                throw new BusinessException("Mode de paiement obligatoire (paymentMethod ou payments)",
+                        HttpStatus.BAD_REQUEST);
+            }
+            sale.setPaymentMethod(pm);
+            sale.addPayment(SalePayment.builder()
+                    .method(pm == PaymentMethod.CARTE ? TenderMethod.CARTE : TenderMethod.ESPECES)
+                    .amount(total).build());
+            return;
+        }
+
+        Set<String> codesInSale = new HashSet<>();
+        BigDecimal sum = BigDecimal.ZERO;
+        for (SalePaymentRequest t : tenders) {
+            sum = sum.add(t.amount());
+            if (t.method() == TenderMethod.TICKET_CADEAU) {
+                validateGiftTicket(t, codesInSale);
+            }
+            sale.addPayment(SalePayment.builder()
+                    .method(t.method()).amount(t.amount())
+                    .issuer(t.issuer()).ticketCode(t.ticketCode())
+                    .ticketSerial(t.ticketSerial()).ticketExpiry(t.ticketExpiry())
+                    .build());
+        }
+        if (sum.compareTo(total) < 0) {
+            throw new BusinessException(
+                    "Paiements insuffisants : total des tenders " + sum + " < total a payer " + total,
+                    HttpStatus.BAD_REQUEST);
+        }
+        sale.setPaymentMethod(rollup(tenders));
+    }
+
+    private void validateGiftTicket(SalePaymentRequest t, Set<String> codesInSale) {
+        if (t.issuer() == null) {
+            throw new BusinessException("Emetteur du ticket cadeau obligatoire", HttpStatus.BAD_REQUEST);
+        }
+        if (t.ticketCode() == null || t.ticketCode().isBlank()) {
+            throw new BusinessException("Code du ticket cadeau obligatoire", HttpStatus.BAD_REQUEST);
+        }
+        if (!allowedDenominations().stream().anyMatch(d -> d.compareTo(t.amount()) == 0)) {
+            throw new BusinessException(
+                    "Denomination de ticket invalide : " + t.amount() + " (autorisees : " + denominationsCsv + ")",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (t.ticketExpiry() != null && t.ticketExpiry().isBefore(LocalDate.now())) {
+            throw new BusinessException("Ticket cadeau expire (" + t.ticketExpiry() + ")", HttpStatus.BAD_REQUEST);
+        }
+        if (!codesInSale.add(t.ticketCode())) {
+            throw new BusinessException("Ticket cadeau en double dans la vente : " + t.ticketCode(),
+                    HttpStatus.BAD_REQUEST);
+        }
+        // Usage unique GLOBAL (A4) : deja encaisse sur une autre vente -> 409.
+        if (salePaymentRepository.existsByMethodAndTicketCode(TenderMethod.TICKET_CADEAU, t.ticketCode())) {
+            throw new BusinessException("Ticket cadeau deja utilise : " + t.ticketCode(), HttpStatus.CONFLICT);
+        }
+    }
+
+    private List<BigDecimal> allowedDenominations() {
+        return Arrays.stream(denominationsCsv.split(",")).map(String::trim)
+                .filter(s -> !s.isEmpty()).map(BigDecimal::new).toList();
+    }
+
+    /** Rollup vers le paymentMethod de la vente (colonne existante) : MIXTE si ticket ou melange. */
+    private PaymentMethod rollup(List<SalePaymentRequest> tenders) {
+        Set<TenderMethod> methods = tenders.stream().map(SalePaymentRequest::method)
+                .collect(java.util.stream.Collectors.toSet());
+        if (methods.equals(Set.of(TenderMethod.ESPECES))) return PaymentMethod.ESPECES;
+        if (methods.equals(Set.of(TenderMethod.CARTE))) return PaymentMethod.CARTE;
+        return PaymentMethod.MIXTE;
     }
 
     /** Detail d'une vente (lignes denormalisees + vendeur), charge sans N+1 via @EntityGraph. */

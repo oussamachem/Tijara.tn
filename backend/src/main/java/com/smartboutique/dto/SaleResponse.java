@@ -16,6 +16,9 @@ public record SaleResponse(
         BigDecimal subtotal,
         BigDecimal discount,
         BigDecimal totalAmount,
-        List<SaleItemResponse> items
+        List<SaleItemResponse> items,
+        // Lignes de paiement (tenders) ; le rendu monnaie ne se calcule que sur la part especes.
+        List<SalePaymentResponse> payments,
+        BigDecimal change
 ) {
 }

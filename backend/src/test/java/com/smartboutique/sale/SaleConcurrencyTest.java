@@ -68,7 +68,7 @@ class SaleConcurrencyTest extends AbstractPostgresIT {
                 try {
                     start.await();
                     saleService.createSale(new SaleRequest(
-                            List.of(new SaleItemRequest(vId, 1)), PaymentMethod.ESPECES, null), sellerId);
+                            List.of(new SaleItemRequest(vId, 1)), PaymentMethod.ESPECES, null, null), sellerId);
                     success.incrementAndGet();
                 } catch (BusinessException e) {
                     insufficient.incrementAndGet();
