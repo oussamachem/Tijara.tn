@@ -7,6 +7,7 @@ import ManualSaleScreen from '../screens/ManualSaleScreen';
 import CartScreen from '../screens/CartScreen';
 import StockScreen from '../screens/StockScreen';
 import ReturnsScreen from '../screens/ReturnsScreen';
+import ReservationsScreen from '../screens/ReservationsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -30,6 +31,7 @@ export default function MainTabs() {
         component={CartScreen}
         options={{ tabBarIcon: tabIcon('🛒'), tabBarBadge: count > 0 ? count : undefined }}
       />
+      <Tab.Screen name="Réservations" component={ReservationsScreen} options={{ tabBarIcon: tabIcon('📅') }} />
       <Tab.Screen name="Stock" component={StockScreen} options={{ tabBarIcon: tabIcon('📦') }} />
       <Tab.Screen name="Retours" component={ReturnsScreen} options={{ tabBarIcon: tabIcon('↩️') }} />
     </Tab.Navigator>

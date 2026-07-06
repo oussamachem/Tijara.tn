@@ -25,3 +25,13 @@ export const salesApi = {
 export const returnsApi = {
   create: (payload) => client.post('/api/returns', payload),
 };
+
+export const reservationsApi = {
+  // Acompte / Reservation (layaway). Le total est calcule serveur.
+  create: (payload) => client.post('/api/reservations', payload),
+  list: (status) => client.get('/api/reservations', { params: status ? { status } : {} }),
+  dueSoon: () => client.get('/api/reservations/due-soon'),
+  detail: (id) => client.get(`/api/reservations/${id}`),
+  pay: (id, payload) => client.post(`/api/reservations/${id}/payments`, payload),
+  cancel: (id) => client.post(`/api/reservations/${id}/cancel`),
+};

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useCart } from '../cart/CartContext';
-import { salesApi } from '../api/endpoints';
+import { salesApi, reservationsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
 import { AppButton, AppTextInput, QtyStepper, ErrorBanner } from '../components';
 import TicketScanner from '../widgets/TicketScanner';
@@ -34,6 +34,10 @@ export default function CartScreen() {
   const [scanOpen, setScanOpen] = useState(false);
   const [form, setForm] = useState(null); // {code, issuer, value, expiry}
   const [remainderMethod, setRemainderMethod] = useState('ESPECES');
+
+  // --- Reservation (acompte) ---
+  const [reserve, setReserve] = useState(null); // {name, phone, deposit, method, duration} | null
+  const openReserve = () => setReserve({ name: '', phone: '', deposit: '', method: 'ESPECES', duration: '' });
 
   const d = parseFloat(String(discount).replace(',', '.'));
   const disc = !Number.isNaN(d) && d > 0 ? d : 0;
@@ -90,6 +94,36 @@ export default function CartScreen() {
       navigation.navigate('Receipt', { sale: data });
     } catch (err) {
       // 409 = stock insuffisant OU ticket déjà utilisé ; 400 = ticket expiré / dénomination / insuffisant.
+      setError(apiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitReserve = async () => {
+    if (submitting) return;
+    if (!reserve.name.trim()) { setError('Le nom du client est obligatoire pour une réservation.'); return; }
+    setSubmitting(true);
+    setError('');
+    try {
+      const dep = parseFloat(String(reserve.deposit).replace(',', '.'));
+      const dur = parseInt(reserve.duration, 10);
+      const payload = {
+        customerName: reserve.name.trim(),
+        customerPhone: reserve.phone.trim() || null,
+        items: items.map((i) => ({ variantId: i.variant.variantId, quantity: i.quantity })),
+        downPayment: !Number.isNaN(dep) && dep > 0 ? dep : 0,
+        downPaymentMethod: reserve.method,
+      };
+      if (!Number.isNaN(dur) && dur > 0) payload.durationDays = dur;
+
+      const { data } = await reservationsApi.create(payload);
+      clear();
+      setReserve(null);
+      Alert.alert('Réservation créée', `${data.reference} · reste ${formatMoney(data.remaining)} à régler.`);
+      navigation.navigate('Réservations');
+    } catch (err) {
+      // 409 = stock insuffisant ; 400 = acompte > total.
       setError(apiError(err));
     } finally {
       setSubmitting(false);
@@ -193,6 +227,8 @@ export default function CartScreen() {
         <Text style={styles.note}>Le total définitif est calculé et renvoyé par le serveur.</Text>
 
         <AppButton title={submitting ? 'Validation…' : 'Valider la vente'} onPress={validate} loading={submitting} disabled={submitting} />
+        <View style={{ height: 8 }} />
+        <AppButton title="📅 Réserver (acompte)" variant="secondary" onPress={openReserve} disabled={submitting} />
       </View>
 
       {/* Scanner ticket (QR ou code-barres) */}
@@ -231,6 +267,49 @@ export default function CartScreen() {
             <AppButton title="Ajouter le ticket" onPress={addTicket} />
             <View style={{ height: 8 }} />
             <AppButton title="Annuler" variant="secondary" onPress={() => setForm(null)} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modale : reservation (acompte) */}
+      <Modal visible={!!reserve} transparent animationType="slide" onRequestClose={() => setReserve(null)}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setReserve(null)}>
+          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
+            <ScrollView contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="handled">
+              <Text style={styles.sheetTitle}>Réserver (acompte)</Text>
+              <Text style={styles.note}>Le produit est retenu en boutique. Total calculé par le serveur ; le client règle le reste plus tard.</Text>
+
+              <Text style={styles.smallLabel}>Nom du client *</Text>
+              <AppTextInput value={reserve?.name} onChangeText={(v) => setReserve((r) => ({ ...r, name: v }))} placeholder="Nom et prénom" />
+
+              <Text style={styles.smallLabel}>Téléphone (optionnel)</Text>
+              <AppTextInput value={reserve?.phone} onChangeText={(v) => setReserve((r) => ({ ...r, phone: v }))} placeholder="20 123 456" keyboardType="phone-pad" />
+
+              <Text style={styles.smallLabel}>Acompte versé maintenant (optionnel)</Text>
+              <AppTextInput value={reserve?.deposit} onChangeText={(v) => setReserve((r) => ({ ...r, deposit: v }))} placeholder="0.00" keyboardType="decimal-pad" />
+
+              <Text style={styles.smallLabel}>Acompte en</Text>
+              <View style={styles.chips}>
+                {['ESPECES', 'CARTE'].map((m) => (
+                  <TouchableOpacity key={m} style={[styles.chip, reserve?.method === m && styles.payBtnActive]} onPress={() => setReserve((r) => ({ ...r, method: m }))}>
+                    <Text style={[styles.payText, reserve?.method === m && styles.payTextActive]}>{m === 'ESPECES' ? 'Espèces' : 'Carte'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.smallLabel}>Durée en jours (optionnel, défaut 30)</Text>
+              <AppTextInput value={reserve?.duration} onChangeText={(v) => setReserve((r) => ({ ...r, duration: v }))} placeholder="30" keyboardType="number-pad" />
+
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Sous-total indicatif ({count})</Text>
+                <Text style={styles.totalValue}>{formatMoney(subtotal)}</Text>
+              </View>
+
+              <View style={{ height: 8 }} />
+              <AppButton title={submitting ? 'Création…' : 'Créer la réservation'} onPress={submitReserve} loading={submitting} disabled={submitting} />
+              <View style={{ height: 8 }} />
+              <AppButton title="Annuler" variant="secondary" onPress={() => setReserve(null)} />
+            </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

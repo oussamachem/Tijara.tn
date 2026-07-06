@@ -6,6 +6,7 @@ import LoginScreen from '../screens/LoginScreen';
 import MainTabs from './MainTabs';
 import ReceiptScreen from '../screens/ReceiptScreen';
 import ReturnSaleScreen from '../screens/ReturnSaleScreen';
+import ReservationDetailScreen from '../screens/ReservationDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -32,6 +33,7 @@ export default function RootNavigator() {
             options={{ title: 'Reçu', headerBackVisible: false, gestureEnabled: false }}
           />
           <Stack.Screen name="ReturnSale" component={ReturnSaleScreen} options={{ title: 'Retour produit' }} />
+          <Stack.Screen name="ReservationDetail" component={ReservationDetailScreen} options={{ title: 'Réservation' }} />
         </>
       )}
     </Stack.Navigator>
