@@ -14,4 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     List<User> findByRole(Role role);
+
+    /** Vendeurs d'UNE boutique (users n'a pas de RLS -> scoping applicatif par tenant). */
+    List<User> findByRoleAndBoutiqueId(Role role, Long boutiqueId);
 }

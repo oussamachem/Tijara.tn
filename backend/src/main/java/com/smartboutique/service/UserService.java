@@ -8,6 +8,7 @@ import com.smartboutique.exception.DuplicateResourceException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.UserMapper;
 import com.smartboutique.repository.UserRepository;
+import com.smartboutique.tenancy.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -64,9 +65,13 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> listSellers() {
-        return userRepository.findByRole(Role.VENDEUR).stream()
-                .map(userMapper::toResponse)
-                .toList();
+        // users n'a pas de RLS (login pre-tenant) -> on scope explicitement a la boutique courante.
+        // tenant null (hors requete authentifiee : tests, taches) -> pas de restriction.
+        Long tenant = TenantContext.get();
+        List<User> sellers = (tenant == null)
+                ? userRepository.findByRole(Role.VENDEUR)
+                : userRepository.findByRoleAndBoutiqueId(Role.VENDEUR, tenant);
+        return sellers.stream().map(userMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -85,6 +90,7 @@ public class UserService {
                 .password(passwordEncoder.encode(request.password()))
                 .role(Role.VENDEUR)
                 .active(true)
+                .boutiqueId(TenantContext.get())   // rattache le vendeur a la boutique de l'admin
                 .build();
         seller = userRepository.save(seller);
         log.info("Vendeur cree : {} (id={})", seller.getEmail(), seller.getId());
@@ -123,7 +129,10 @@ public class UserService {
 
     private User findSeller(Long id) {
         User user = findUser(id);
-        if (user.getRole() != Role.VENDEUR) {
+        // Scoping tenant : un admin ne voit/modifie QUE les vendeurs de SA boutique (sinon 404,
+        // pas de fuite). users n'ayant pas de RLS, ce controle est fait cote application.
+        Long tenant = TenantContext.get();
+        if (user.getRole() != Role.VENDEUR || (tenant != null && !tenant.equals(user.getBoutiqueId()))) {
             throw new ResourceNotFoundException("Vendeur", id);
         }
         return user;
