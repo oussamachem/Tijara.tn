@@ -55,7 +55,10 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         // Sonde de sante (healthcheck Docker) + info. Le reste d'Actuator reste protege.
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
-                        // Back-office reserve a l'administrateur.
+                        // Espace PLATEFORME : gestion des boutiques reservee au SUPER_ADMIN.
+                        // (Plus specifique -> declare AVANT la regle generale /api/admin/**.)
+                        .requestMatchers("/api/admin/boutiques/**").hasRole("SUPER_ADMIN")
+                        // Back-office d'UNE boutique reserve a son administrateur.
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Tableau de bord reserve a l'administrateur.
                         .requestMatchers("/api/dashboard").hasRole("ADMIN")

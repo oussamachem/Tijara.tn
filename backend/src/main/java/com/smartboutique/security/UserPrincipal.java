@@ -24,10 +24,18 @@ public class UserPrincipal implements UserDetails {
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
+        this(user, true);
+    }
+
+    /**
+     * @param boutiqueActive false si la boutique du user est SUSPENDED -> compte considere non actif
+     *                       (connexion refusee, meme pour un user actif).
+     */
+    public UserPrincipal(User user, boolean boutiqueActive) {
         this.id = user.getId();
         this.email = user.getEmail();
         this.password = user.getPassword();
-        this.active = user.isActive();
+        this.active = user.isActive() && boutiqueActive;
         this.boutiqueId = user.getBoutiqueId();
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }

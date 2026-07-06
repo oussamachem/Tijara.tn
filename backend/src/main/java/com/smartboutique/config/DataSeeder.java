@@ -41,6 +41,12 @@ public class DataSeeder implements CommandLineRunner {
     @Value("${app.seed.admin-name}")
     private String adminName;
 
+    @Value("${app.seed.super-admin-email}")
+    private String superAdminEmail;
+
+    @Value("${app.seed.super-admin-password}")
+    private String superAdminPassword;
+
     /** Donnees de demonstration (categories d'exemple) : desactivees en production. */
     @Value("${app.seed-demo-data:true}")
     private boolean seedDemoData;
@@ -50,7 +56,8 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // L'admin bootstrap est toujours cree (necessaire pour se connecter, idempotent).
+        // Le SUPER_ADMIN plateforme + l'admin bootstrap sont toujours crees (idempotent).
+        seedSuperAdmin();
         seedAdmin();
         // Les categories d'exemple ne sont seedees qu'en dehors de la production.
         if (seedDemoData) {
@@ -58,6 +65,21 @@ public class DataSeeder implements CommandLineRunner {
         } else {
             log.info("Seed des donnees de demo desactive (app.seed-demo-data=false).");
         }
+    }
+
+    private void seedSuperAdmin() {
+        if (userRepository.existsByEmail(superAdminEmail)) {
+            return;
+        }
+        userRepository.save(User.builder()
+                .fullName("Super Administrateur")
+                .email(superAdminEmail)
+                .password(passwordEncoder.encode(superAdminPassword))
+                .role(Role.SUPER_ADMIN)
+                .active(true)
+                .boutiqueId(defaultBoutiqueId())   // rattache a la boutique par defaut (NOT NULL en prod)
+                .build());
+        log.info("Compte SUPER_ADMIN plateforme cree : {}", superAdminEmail);
     }
 
     private void seedAdmin() {
