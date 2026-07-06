@@ -20,6 +20,7 @@ public class UserPrincipal implements UserDetails {
     private final String email;
     private final String password;
     private final boolean active;
+    private final Long boutiqueId;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
@@ -27,6 +28,7 @@ public class UserPrincipal implements UserDetails {
         this.email = user.getEmail();
         this.password = user.getPassword();
         this.active = user.isActive();
+        this.boutiqueId = user.getBoutiqueId();
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
 

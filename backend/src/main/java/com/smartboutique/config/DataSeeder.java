@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +30,7 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.seed.admin-email}")
     private String adminEmail;
@@ -68,6 +71,7 @@ public class DataSeeder implements CommandLineRunner {
                 .password(passwordEncoder.encode(adminPassword))
                 .role(Role.ADMIN)
                 .active(true)
+                .boutiqueId(defaultBoutiqueId())   // prod : boutique par defaut (NOT NULL) ; dev/test : null
                 .build();
         userRepository.save(admin);
 
@@ -77,6 +81,19 @@ public class DataSeeder implements CommandLineRunner {
         log.info("   Mot de passe : {}", adminPassword);
         log.info("   (a modifier des la premiere connexion)");
         log.info("=================================================================");
+    }
+
+    /**
+     * Id de la boutique par defaut (prod : table boutiques presente via Flyway V9). En dev/test
+     * (schema create-drop sans la table), renvoie null : la colonne users.boutique_id y est nullable.
+     */
+    private Long defaultBoutiqueId() {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT id FROM boutiques WHERE slug = 'default'", Long.class);
+        } catch (DataAccessException e) {
+            return null;
+        }
     }
 
     private void seedCategories() {

@@ -41,6 +41,15 @@ public class User {
     @Builder.Default
     private boolean active = true;
 
+    /**
+     * Tenant (boutique) de l'utilisateur. Sert a poser le contexte tenant apres login (claim JWT +
+     * RLS). Nullable cote entite : les profils dev/test (schema create-drop) n'ont pas la contrainte
+     * NOT NULL ; en prod la colonne est NOT NULL (Flyway V9). Un futur SUPER_ADMIN plateforme peut
+     * ne pas etre rattache a une boutique.
+     */
+    @Column(name = "boutique_id")
+    private Long boutiqueId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

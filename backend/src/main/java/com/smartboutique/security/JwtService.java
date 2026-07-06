@@ -29,7 +29,7 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    /** Genere un token contenant l'id (subject), l'email et le role. */
+    /** Genere un token contenant l'id (subject), l'email, le role et la boutique (tenant). */
     public String generateToken(User user) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
@@ -37,10 +37,17 @@ public class JwtService {
                 .subject(String.valueOf(user.getId()))
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
+                .claim("boutique_id", user.getBoutiqueId())
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)
                 .compact();
+    }
+
+    /** Tenant (boutique) porte par le token, ou null (ex. SUPER_ADMIN plateforme). */
+    public Long extractBoutiqueId(String token) {
+        Number b = parse(token).get("boutique_id", Number.class);
+        return b != null ? b.longValue() : null;
     }
 
     /** Extrait l'email (claim) du token. Leve une exception JWT si le token est invalide ou expire. */

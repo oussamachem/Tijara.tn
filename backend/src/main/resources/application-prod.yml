@@ -4,14 +4,25 @@
 # (aucune valeur par defaut : l'application refuse de demarrer si manquantes).
 # =====================================================================
 spring:
+  # Runtime : l'app se connecte via le role NON-SUPERUSER sb_app -> la RLS (Phase 1 multi-tenant)
+  # s'applique reellement (un superuser la bypasserait). L'URL vient d'application.yml.
+  datasource:
+    username: ${APP_DB_USERNAME:sb_app}
+    password: ${APP_DB_PASSWORD}
   jpa:
     hibernate:
       # JAMAIS create/update en prod : le schema est gere par Flyway, Hibernate ne fait que valider.
       ddl-auto: validate
     show-sql: false
-  # Flyway applique les migrations (V1__init.sql) au demarrage.
+  # Flyway applique les migrations au demarrage, mais en tant que PROPRIETAIRE du schema
+  # (droits DDL / creation de role / policies), PAS avec le role applicatif sb_app.
   flyway:
     enabled: true
+    user: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    # Mot de passe du role sb_app cree par V9 (jamais en dur dans le SQL).
+    placeholders:
+      app_role_password: ${APP_DB_PASSWORD}
 
 server:
   # Derriere un reverse proxy / tunnel (nginx, Cloudflare) : honore X-Forwarded-Proto/Host

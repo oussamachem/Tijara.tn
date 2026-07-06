@@ -1,5 +1,6 @@
 package com.smartboutique.security;
 
+import com.smartboutique.tenancy.TenantContext;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -55,6 +56,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                    // Contexte tenant de la requete (base de la RLS). Source autoritaire = la boutique
+                    // de l'utilisateur charge en base ; a defaut, le claim du token.
+                    Long boutiqueId = (userDetails instanceof UserPrincipal p) ? p.getBoutiqueId() : null;
+                    if (boutiqueId == null) boutiqueId = jwtService.extractBoutiqueId(token);
+                    TenantContext.set(boutiqueId);
                 }
             } catch (JwtException | IllegalArgumentException ex) {
                 // Token invalide ou expire : on n'authentifie pas, l'entry point renverra 401.
@@ -62,7 +69,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            // Indispensable : le thread retourne au pool, ne pas laisser fuiter le tenant.
+            TenantContext.clear();
+        }
     }
 
     private String resolveToken(HttpServletRequest request) {

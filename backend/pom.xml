@@ -44,6 +44,12 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- AOP (aspectj) : aspect tenant qui pose app.current_boutique par transaction (RLS). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
         <!-- Actuator : endpoint /actuator/health (healthcheck Docker) + /info. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
