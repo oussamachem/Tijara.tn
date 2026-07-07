@@ -68,7 +68,7 @@ class SizeIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "VENDEUR")
     @DisplayName("Catalogue trie par position (nulls en dernier) puis libelle")
     void orderedByPosition() throws Exception {
         createSize("L", 3);

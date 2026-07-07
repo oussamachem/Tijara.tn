@@ -199,7 +199,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "VENDEUR")
     @DisplayName("Image PNG du QR Code d'une variante")
     void variantQrImage_returnsPng() throws Exception {
         var v = Fixtures.variant(productRepository, variantRepository, sizeRepository,
