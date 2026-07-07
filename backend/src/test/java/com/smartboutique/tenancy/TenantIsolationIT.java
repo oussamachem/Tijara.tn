@@ -33,7 +33,9 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
     private String saToken;           // SUPER_ADMIN
     private long idA, idB;            // boutiques
     private String tokenA, tokenB;    // admins de A et B
-    private long prodA, prodB, variantB;
+    private long prodA, prodB, variantA, variantB;
+    private String slugA, slugB;
+    private String clientToken;       // compte CLIENT (marketplace)
 
     @BeforeAll
     void setUp() throws Exception {
@@ -41,6 +43,8 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
 
         idA = createBoutique("Alpha", "iso.admin.a@shop.test");
         idB = createBoutique("Beta", "iso.admin.b@shop.test");
+        slugA = "alpha";
+        slugB = "beta";
         tokenA = login("iso.admin.a@shop.test", "Passw0rd!");
         tokenB = login("iso.admin.b@shop.test", "Passw0rd!");
 
@@ -49,9 +53,16 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
             long[] a = seedProduct(c, idA, "A");
             long[] b = seedProduct(c, idB, "B");
             prodA = a[0];
+            variantA = a[1];
             prodB = b[0];
             variantB = b[1];
         }
+
+        // Compte CLIENT (marketplace, global).
+        String reg = "{\"fullName\":\"Client Test\",\"email\":\"iso.client@shop.test\",\"password\":\"Passw0rd!\"}";
+        String json = mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(reg))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        clientToken = JsonPath.read(json, "$.token");
     }
 
     // -------------------------------- Lecture --------------------------------
@@ -129,6 +140,55 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
             st.execute("RESET app.current_boutique");
             assertThat(scalar(st, "SELECT count(*) FROM products")).as("fail-closed sans tenant").isZero();
         }
+    }
+
+    // ------------------------------ Marketplace (Phase 4) ------------------------------
+
+    @Test
+    @DisplayName("Annuaire public : recherche 'alph' -> Alpha (actif), sans authentification")
+    void publicShopDirectory() throws Exception {
+        mockMvc.perform(get("/api/shops").param("query", "alph"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.slug=='" + slugA + "')]").exists())
+                .andExpect(jsonPath("$[?(@.slug=='" + slugB + "')]").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Catalogue public : chaque boutique n'expose QUE ses produits (tenant par slug)")
+    void publicCatalogScopedBySlug() throws Exception {
+        mockMvc.perform(get("/api/shops/{slug}/products", slugA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].reference").value("A-P"));
+        mockMvc.perform(get("/api/shops/{slug}/products", slugB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].reference").value("B-P"));
+    }
+
+    @Test
+    @DisplayName("Commande CLIENT : rattachee au slug, total serveur, stock NON decremente (C3), suivi")
+    void clientOrder_serverPriced_noStockDecrement() throws Exception {
+        String body = "{\"items\":[{\"variantId\":" + variantA + ",\"quantity\":2}]}";
+        mockMvc.perform(post("/api/shops/{slug}/orders", slugA).header("Authorization", "Bearer " + clientToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("EN_ATTENTE"))
+                .andExpect(jsonPath("$.total").value(40.0))          // 2 x 20 (prix serveur de A)
+                .andExpect(jsonPath("$.reference", org.hamcrest.Matchers.startsWith("CMD-")));
+        // C3 : le stock n'est PAS decremente a la commande.
+        assertThat(variantStock(variantA)).isEqualTo(10);
+        // Suivi : le client voit sa commande dans cette boutique.
+        mockMvc.perform(get("/api/shops/{slug}/orders/mine", slugA).header("Authorization", "Bearer " + clientToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("Anti cross-boutique : commander la variante de B via le slug de A -> refuse (invisible)")
+    void cannotOrderForeignVariantViaSlug() throws Exception {
+        String body = "{\"items\":[{\"variantId\":" + variantB + ",\"quantity\":1}]}";
+        mockMvc.perform(post("/api/shops/{slug}/orders", slugA).header("Authorization", "Bearer " + clientToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());   // la variante de B n'existe pas dans le tenant de A
     }
 
     // -------------------------------- helpers --------------------------------

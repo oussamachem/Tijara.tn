@@ -46,15 +46,20 @@ public class SecurityConfig {
                 // API REST stateless : aucune session HTTP cote serveur.
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints publics d'authentification.
+                        // Endpoints publics d'authentification + inscription CLIENT (marketplace).
                         .requestMatchers(
                                 "/api/auth/login",
+                                "/api/auth/register",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password").permitAll()
                         // Images produits servies statiquement (affichage <img> cote web).
                         .requestMatchers("/uploads/**").permitAll()
                         // Sonde de sante (healthcheck Docker) + info. Le reste d'Actuator reste protege.
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        // Marketplace : commandes reservees au CLIENT (declare AVANT le catalogue public).
+                        .requestMatchers("/api/shops/*/orders", "/api/shops/*/orders/**").hasRole("CLIENT")
+                        // Annuaire + catalogue = PUBLIC (lecture, resolution du tenant par le slug).
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
                         // Espace PLATEFORME : gestion des boutiques reservee au SUPER_ADMIN.
                         // (Plus specifique -> declare AVANT la regle generale /api/admin/**.)
                         .requestMatchers("/api/admin/boutiques/**").hasRole("SUPER_ADMIN")
@@ -62,8 +67,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Tableau de bord reserve a l'administrateur.
                         .requestMatchers("/api/dashboard").hasRole("ADMIN")
-                        // Tout le reste necessite une authentification (ADMIN ou VENDEUR).
-                        .anyRequest().authenticated())
+                        // Endpoints internes (produits, ventes, stock...) : ADMIN ou VENDEUR d'une boutique.
+                        // Le CLIENT (marketplace) n'y accede pas ; le SUPER_ADMIN reste sur l'espace plateforme.
+                        .anyRequest().hasAnyRole("ADMIN", "VENDEUR"))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
