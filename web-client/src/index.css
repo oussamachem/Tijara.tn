@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Zone sure iOS (encoche) pour la barre de navigation basse. */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+}
+.safe-top {
+  padding-top: calc(env(safe-area-inset-top, 0px));
+}
+
+/* Masque la barre de defilement horizontale des chips. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

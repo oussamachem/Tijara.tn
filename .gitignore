@@ -13,6 +13,7 @@ hs_err_pid*
 node_modules/
 web/dist/
 web/build/
+web-client/dist/
 mobile/.expo/
 mobile/dist/
 npm-debug.log*

@@ -70,8 +70,19 @@ services:
       backend:
         condition: service_healthy
     ports:
-      # Web servi par nginx. 8090 sur l'hote pour eviter les conflits ; 80/443 en prod reelle.
+      # Web ADMIN servi par nginx. 8090 sur l'hote pour eviter les conflits ; 80/443 en prod reelle.
       - "8090:80"
+
+  web-client:
+    build: ./web-client
+    container_name: sb-web-client
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Marketplace CLIENT (app separee). 8091 sur l'hote.
+      - "8091:80"
 
 volumes:
   pg_data:
