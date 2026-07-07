@@ -12,6 +12,7 @@ import Sizes from './pages/Sizes.jsx';
 import Sellers from './pages/Sellers.jsx';
 import SalesHistory from './pages/SalesHistory.jsx';
 import SaleDetail from './pages/SaleDetail.jsx';
+import Orders from './pages/Orders.jsx';
 import Credits from './pages/Credits.jsx';
 import CreditDetail from './pages/CreditDetail.jsx';
 import SupplierDebts from './pages/SupplierDebts.jsx';
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/couleurs" element={<Colors />} />
         <Route path="/tailles" element={<Sizes />} />
         <Route path="/vendeurs" element={<Sellers />} />
+        <Route path="/commandes" element={<Orders />} />
         <Route path="/historique" element={<SalesHistory />} />
         <Route path="/ventes/:id" element={<SaleDetail />} />
         <Route path="/credits" element={<Credits />} />

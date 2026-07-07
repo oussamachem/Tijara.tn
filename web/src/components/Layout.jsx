@@ -9,6 +9,7 @@ const navItems = [
   { to: '/couleurs', label: 'Couleurs', icon: '🎨' },
   { to: '/tailles', label: 'Tailles', icon: '📏' },
   { to: '/vendeurs', label: 'Vendeurs', icon: '👤' },
+  { to: '/commandes', label: 'Commandes en ligne', icon: '📦' },
   { to: '/credits', label: 'Crédits', icon: '💳' },
   { to: '/dettes', label: 'Dettes fournisseurs', icon: '📒' },
   { to: '/historique', label: 'Historique', icon: '🧾' },

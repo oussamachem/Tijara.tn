@@ -120,3 +120,10 @@ export const salesApi = {
 export const returnsApi = {
   history: (params) => client.get('/api/admin/returns', { params }),
 };
+
+// ---------------------- Commandes en ligne (marketplace) ---------------------
+export const ordersApi = {
+  list: (params) => client.get('/api/admin/orders', { params }),
+  get: (id) => client.get(`/api/admin/orders/${id}`),
+  changeStatus: (id, status) => client.post(`/api/admin/orders/${id}/status`, { status }),
+};

@@ -1,6 +1,7 @@
 package com.smartboutique.repository;
 
 import com.smartboutique.entity.Order;
+import com.smartboutique.entity.OrderStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -22,6 +23,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** Commandes du client dans le tenant courant (RLS), plus recentes d'abord. */
     List<Order> findByClientIdOrderByCreatedAtDesc(Long clientId);
 
-    /** Toutes les commandes du tenant courant (espace boutique-admin), plus recentes d'abord. */
-    List<Order> findAllByOrderByCreatedAtDesc();
+    /** Toutes les commandes du tenant courant (espace boutique-admin), lignes chargees. */
+    @EntityGraph(attributePaths = {"items"})
+    @Query("SELECT o FROM Order o ORDER BY o.createdAt DESC")
+    List<Order> findAllWithItems();
+
+    /** Commandes du tenant filtrees par statut, lignes chargees. */
+    @EntityGraph(attributePaths = {"items"})
+    List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
 }
