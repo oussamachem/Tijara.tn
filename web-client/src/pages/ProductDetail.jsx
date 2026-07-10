@@ -67,7 +67,7 @@ export default function ProductDetail() {
   return (
     <div>
       <Header title={product.name} subtitle={shopName} back />
-      <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 text-7xl">🧥</div>
+      <ImageCarousel images={product.images} name={product.name} />
 
       <div className="space-y-5 p-4">
         <div>
@@ -121,6 +121,36 @@ export default function ProductDetail() {
       {toast && (
         <div className="fixed inset-x-0 bottom-24 z-30 mx-auto max-w-md px-4">
           <div className="rounded-xl bg-slate-800 py-3 text-center text-sm font-semibold text-white shadow-lg">{toast}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Carrousel d'images swipeable (scroll-snap horizontal) + pastilles. Fallback si aucune image. */
+function ImageCarousel({ images, name }) {
+  const [idx, setIdx] = useState(0);
+  const list = images || [];
+  if (list.length === 0) {
+    return <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 text-7xl">🧥</div>;
+  }
+  const onScroll = (e) => {
+    const i = Math.round(e.target.scrollLeft / e.target.clientWidth);
+    if (i !== idx) setIdx(i);
+  };
+  return (
+    <div className="relative">
+      <div onScroll={onScroll} className="no-scrollbar flex aspect-square snap-x snap-mandatory overflow-x-auto">
+        {list.map((img, i) => (
+          <img key={i} src={img.url} alt={`${name} ${i + 1}`} loading={i === 0 ? 'eager' : 'lazy'} decoding="async"
+            className="aspect-square w-full shrink-0 snap-center bg-slate-100 object-cover" />
+        ))}
+      </div>
+      {list.length > 1 && (
+        <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
+          {list.map((_, i) => (
+            <span key={i} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`} />
+          ))}
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { useCart } from './cart/CartContext';
 import { useAuth } from './auth/AuthContext';
 import Home from './pages/Home.jsx';
 import Catalog from './pages/Catalog.jsx';
+import Gallery from './pages/Gallery.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import Cart from './pages/Cart.jsx';
 import Checkout from './pages/Checkout.jsx';
@@ -59,6 +60,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/s/:slug" element={<Catalog />} />
+          <Route path="/s/:slug/gallery" element={<Gallery />} />
           <Route path="/s/:slug/p/:productId" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />

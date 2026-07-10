@@ -58,7 +58,8 @@ export default function Catalog() {
 
   return (
     <div>
-      <Header title={shopName} subtitle="Catalogue" back />
+      <Header title={shopName} subtitle="Catalogue" back
+        right={<Link to={`/s/${slug}/gallery`} state={{ shopName }} className="rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white">📸 Galerie</Link>} />
       <div className="sticky top-[57px] z-10 space-y-2 border-b border-slate-100 bg-slate-50/95 px-4 py-3 backdrop-blur">
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 Rechercher un article…" />
         <div className="no-scrollbar flex gap-2 overflow-x-auto">
@@ -95,9 +96,14 @@ export default function Catalog() {
                   state={{ product: p, shopName }}
                   className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card active:scale-[.99]"
                 >
-                  <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 text-4xl">
-                    🧥
-                  </div>
+                  {p.images && p.images.length > 0 ? (
+                    <img src={p.images[0].url} alt={p.name} loading="lazy" decoding="async"
+                      className="aspect-square w-full bg-slate-100 object-cover" />
+                  ) : (
+                    <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 text-4xl">
+                      🧥
+                    </div>
+                  )}
                   <div className="flex flex-1 flex-col p-3">
                     <div className="line-clamp-2 text-sm font-semibold text-slate-800">{p.name}</div>
                     <div className="mt-1 text-xs text-slate-400">{p.variants.length} taille(s)/couleur(s)</div>

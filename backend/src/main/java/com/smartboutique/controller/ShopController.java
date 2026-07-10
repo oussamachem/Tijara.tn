@@ -31,11 +31,20 @@ public class ShopController {
         return shopService.search(query);
     }
 
-    /** Catalogue public d'une boutique (declinaisons disponibles). */
+    /** Catalogue public d'une boutique (declinaisons disponibles + galerie photos). */
     @GetMapping("/{slug}/products")
     public List<PublicProductResponse> catalog(@PathVariable String slug) {
         shopService.enterShop(slug);   // resout la boutique ACTIVE + pose le tenant
         return shopService.catalog();
+    }
+
+    /** Galerie "photos" paginee d'une boutique (grid style Pinterest, defilement infini cote client). */
+    @GetMapping("/{slug}/gallery")
+    public PageResponse<PublicProductResponse> gallery(@PathVariable String slug,
+                                                       @RequestParam(defaultValue = "0") int page,
+                                                       @RequestParam(defaultValue = "24") int size) {
+        shopService.enterShop(slug);
+        return shopService.gallery(page, Math.min(size, 60));   // borne dure : jamais 500 images d'un coup
     }
 
     /** Passer commande dans la boutique du slug (CLIENT). Total recalcule serveur. */
