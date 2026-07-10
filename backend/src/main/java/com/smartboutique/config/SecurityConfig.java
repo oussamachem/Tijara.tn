@@ -97,7 +97,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(",")).map(String::trim).toList());
+        // setAllowedOriginPatterns (et non setAllowedOrigins) : accepte les MOTIFS avec '*'
+        // (ex. http://192.168.*:* pour joindre le LAN depuis un telephone malgre le DHCP),
+        // compatible avec allowCredentials=true. Un match exact reste supporte.
+        config.setAllowedOriginPatterns(Arrays.stream(allowedOrigins.split(",")).map(String::trim).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
