@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartboutique.dto.LoginRequest;
 import com.smartboutique.dto.ResetPasswordRequest;
 import com.smartboutique.entity.PasswordResetToken;
-import com.smartboutique.entity.Role;
 import com.smartboutique.entity.User;
 import com.smartboutique.repository.PasswordResetTokenRepository;
 import com.smartboutique.repository.UserRepository;
@@ -59,12 +58,12 @@ class AuthIntegrationTest extends AbstractPostgresIT {
         userRepository.save(User.builder()
                 .fullName("Vendeur Actif").email(VENDEUR_EMAIL)
                 .password(passwordEncoder.encode(VENDEUR_PASSWORD))
-                .role(Role.VENDEUR).active(true).build());
+                .active(true).build());
 
         userRepository.save(User.builder()
                 .fullName("Vendeur Inactif").email(DISABLED_EMAIL)
                 .password(passwordEncoder.encode(VENDEUR_PASSWORD))
-                .role(Role.VENDEUR).active(false).build());
+                .active(false).build());
     }
 
     private String login(String email, String password) throws Exception {
@@ -86,7 +85,7 @@ class AuthIntegrationTest extends AbstractPostgresIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.user.role").value("ADMIN"))
+                .andExpect(jsonPath("$.user.platformAdmin").value(false))
                 .andExpect(jsonPath("$.user.email").value(ADMIN_EMAIL));
     }
 
@@ -119,11 +118,10 @@ class AuthIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @DisplayName("Route admin avec le role ADMIN : autorise (200)")
-    void adminRoute_asAdmin_isOk() throws Exception {
-        String token = login(ADMIN_EMAIL, ADMIN_PASSWORD);
-        mockMvc.perform(get("/api/admin/sellers")
-                        .header("Authorization", "Bearer " + token))
+    @com.smartboutique.support.WithShopMember(role = "OWNER")
+    @DisplayName("Route boutique avec l'autorite OWNER (X-Shop-Id valide) : autorise (200)")
+    void shopRoute_asOwner_isOk() throws Exception {
+        mockMvc.perform(get("/api/admin/sellers"))
                 .andExpect(status().isOk());
     }
 

@@ -70,25 +70,25 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
     @Test
     @DisplayName("A ne voit QUE ses produits ; le produit de B est invisible (liste + acces direct)")
     void readIsolation() throws Exception {
-        mockMvc.perform(get("/api/products?size=50").header("Authorization", "Bearer " + tokenA))
+        mockMvc.perform(get("/api/products?size=50").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].reference").value("A-P"));
 
         // Acces direct au produit de B par son id -> 404 (RLS le masque).
-        mockMvc.perform(get("/api/products/{id}", prodB).header("Authorization", "Bearer " + tokenA))
+        mockMvc.perform(get("/api/products/{id}", prodB).header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA))
                 .andExpect(status().isNotFound());
         // A lit bien le sien.
-        mockMvc.perform(get("/api/products/{id}", prodA).header("Authorization", "Bearer " + tokenA))
+        mockMvc.perform(get("/api/products/{id}", prodA).header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA))
                 .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("Le tableau de bord de A differe de celui de B (chacun ne compte que ses donnees)")
     void dashboardIsolation() throws Exception {
-        mockMvc.perform(get("/api/dashboard").header("Authorization", "Bearer " + tokenA))
+        mockMvc.perform(get("/api/dashboard").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalProducts").value(1));
-        mockMvc.perform(get("/api/dashboard").header("Authorization", "Bearer " + tokenB))
+        mockMvc.perform(get("/api/dashboard").header("Authorization", "Bearer " + tokenB).header("X-Shop-Id", idB))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalProducts").value(1));
     }
 
@@ -98,7 +98,7 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
     @DisplayName("A ne peut pas vendre une variante de B (invisible -> refuse)")
     void writeIsolation_cannotSellForeignVariant() throws Exception {
         String body = "{\"items\":[{\"variantId\":" + variantB + ",\"quantity\":1}],\"paymentMethod\":\"ESPECES\"}";
-        mockMvc.perform(post("/api/sales").header("Authorization", "Bearer " + tokenA)
+        mockMvc.perform(post("/api/sales").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().is4xxClientError());   // 404 : la variante de B n'existe pas pour A
         // La variante de B est intacte (stock inchange).
@@ -110,17 +110,17 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
     void sellerIsolation_appLayerScoping() throws Exception {
         // A cree un vendeur.
         String seller = "{\"fullName\":\"Vendeur A\",\"email\":\"seller.a@shop.test\",\"password\":\"Passw0rd!\"}";
-        String json = mockMvc.perform(post("/api/admin/sellers").header("Authorization", "Bearer " + tokenA)
+        String json = mockMvc.perform(post("/api/admin/sellers").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA)
                         .contentType(MediaType.APPLICATION_JSON).content(seller))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         long sellerAId = ((Number) JsonPath.read(json, "$.id")).longValue();
 
         // A voit son vendeur ; B ne le voit pas (liste + acces direct).
-        mockMvc.perform(get("/api/admin/sellers").header("Authorization", "Bearer " + tokenA))
+        mockMvc.perform(get("/api/admin/sellers").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA))
                 .andExpect(jsonPath("$[?(@.email=='seller.a@shop.test')]").exists());
-        mockMvc.perform(get("/api/admin/sellers").header("Authorization", "Bearer " + tokenB))
+        mockMvc.perform(get("/api/admin/sellers").header("Authorization", "Bearer " + tokenB).header("X-Shop-Id", idB))
                 .andExpect(jsonPath("$[?(@.email=='seller.a@shop.test')]").doesNotExist());
-        mockMvc.perform(get("/api/admin/sellers/{id}", sellerAId).header("Authorization", "Bearer " + tokenB))
+        mockMvc.perform(get("/api/admin/sellers/{id}", sellerAId).header("Authorization", "Bearer " + tokenB).header("X-Shop-Id", idB))
                 .andExpect(status().isNotFound());
     }
 
@@ -140,6 +140,22 @@ class TenantIsolationIT extends AbstractTenantRlsIT {
             st.execute("RESET app.current_boutique");
             assertThat(scalar(st, "SELECT count(*) FROM products")).as("fail-closed sans tenant").isZero();
         }
+    }
+
+    // --------------------- Gate Phase A : validation X-Shop-Id ---------------------
+
+    @Test
+    @DisplayName("X-Shop-Id : membre -> acces ; boutique d'autrui -> 403 ; sans header -> 403")
+    void xShopId_validatedAgainstMembership() throws Exception {
+        // A est OWNER de idA -> X-Shop-Id: idA -> acces OK.
+        mockMvc.perform(get("/api/products").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idA))
+                .andExpect(status().isOk());
+        // A n'est PAS membre de idB -> X-Shop-Id: idB -> 403 (pas d'autorite de boutique).
+        mockMvc.perform(get("/api/products").header("Authorization", "Bearer " + tokenA).header("X-Shop-Id", idB))
+                .andExpect(status().isForbidden());
+        // Sans X-Shop-Id -> aucune boutique active -> 403.
+        mockMvc.perform(get("/api/products").header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isForbidden());
     }
 
     // ------------------------------ Marketplace (Phase 4) ------------------------------

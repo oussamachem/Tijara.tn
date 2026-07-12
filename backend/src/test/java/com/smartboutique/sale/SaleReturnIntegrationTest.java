@@ -1,4 +1,5 @@
 package com.smartboutique.sale;
+import com.smartboutique.support.WithShopMember;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartboutique.dto.ReturnRequest;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Ventes et retours au grain VARIANTE (Phase 9). Vendeur = admin seede. */
 @AutoConfigureMockMvc
-@WithUserDetails(value = "admin@smartboutique.com", userDetailsServiceBeanName = "customUserDetailsService")
+@WithShopMember
 class SaleReturnIntegrationTest extends AbstractPostgresIT {
 
     @Autowired private MockMvc mockMvc;

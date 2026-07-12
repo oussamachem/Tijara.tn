@@ -1,26 +1,26 @@
 package com.smartboutique.config;
 
 import com.smartboutique.entity.Category;
-import com.smartboutique.entity.Role;
+import com.smartboutique.entity.ShopMember;
+import com.smartboutique.entity.ShopMemberRole;
 import com.smartboutique.entity.User;
+import com.smartboutique.repository.BoutiqueRepository;
 import com.smartboutique.repository.CategoryRepository;
+import com.smartboutique.repository.ShopMemberRepository;
 import com.smartboutique.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /**
- * Initialise les donnees de demarrage au premier lancement :
- *  - un compte administrateur par defaut ;
- *  - quelques categories d'exemple.
- * Idempotent : ne cree que ce qui n'existe pas encore.
+ * Donnees de demarrage (idempotent). Phase A : les comptes sont des IDENTITES ; le role est
+ * contextuel (shop_members). Le SUPER_ADMIN = flag is_platform_admin. L'admin bootstrap devient
+ * OWNER de la boutique par defaut.
  */
 @Slf4j
 @Component
@@ -28,26 +28,22 @@ import java.util.List;
 public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
+    private final BoutiqueRepository boutiqueRepository;
+    private final ShopMemberRepository shopMemberRepository;
     private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.seed.admin-email}")
     private String adminEmail;
-
     @Value("${app.seed.admin-password}")
     private String adminPassword;
-
     @Value("${app.seed.admin-name}")
     private String adminName;
-
     @Value("${app.seed.super-admin-email}")
     private String superAdminEmail;
-
     @Value("${app.seed.super-admin-password}")
     private String superAdminPassword;
 
-    /** Donnees de demonstration (categories d'exemple) : desactivees en production. */
     @Value("${app.seed-demo-data:true}")
     private boolean seedDemoData;
 
@@ -56,10 +52,8 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Le SUPER_ADMIN plateforme + l'admin bootstrap sont toujours crees (idempotent).
         seedSuperAdmin();
         seedAdmin();
-        // Les categories d'exemple ne sont seedees qu'en dehors de la production.
         if (seedDemoData) {
             seedCategories();
         } else {
@@ -67,55 +61,47 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
+    /** Admin plateforme (ex-SUPER_ADMIN) : identite + flag is_platform_admin, aucune boutique. */
     private void seedSuperAdmin() {
-        if (userRepository.existsByEmail(superAdminEmail)) {
-            return;
-        }
+        if (userRepository.existsByEmail(superAdminEmail)) return;
         userRepository.save(User.builder()
                 .fullName("Super Administrateur")
                 .email(superAdminEmail)
                 .password(passwordEncoder.encode(superAdminPassword))
-                .role(Role.SUPER_ADMIN)
                 .active(true)
-                .boutiqueId(defaultBoutiqueId())   // rattache a la boutique par defaut (NOT NULL en prod)
+                .platformAdmin(true)
                 .build());
-        log.info("Compte SUPER_ADMIN plateforme cree : {}", superAdminEmail);
+        log.info("Compte ADMIN PLATEFORME cree : {}", superAdminEmail);
     }
 
+    /** Admin bootstrap : identite + OWNER de la boutique par defaut (si presente). */
     private void seedAdmin() {
-        if (userRepository.existsByEmail(adminEmail)) {
-            log.info("Compte administrateur deja present ({}), seed ignore.", adminEmail);
-            return;
+        User admin = userRepository.findByEmail(adminEmail).orElse(null);
+        if (admin == null) {
+            admin = userRepository.save(User.builder()
+                    .fullName(adminName)
+                    .email(adminEmail)
+                    .password(passwordEncoder.encode(adminPassword))
+                    .active(true)
+                    .platformAdmin(false)
+                    .build());
+            log.info("=================================================================");
+            log.info(" Compte proprietaire par defaut cree : {} / {}", adminEmail, adminPassword);
+            log.info("=================================================================");
         }
-        User admin = User.builder()
-                .fullName(adminName)
-                .email(adminEmail)
-                .password(passwordEncoder.encode(adminPassword))
-                .role(Role.ADMIN)
-                .active(true)
-                .boutiqueId(defaultBoutiqueId())   // prod : boutique par defaut (NOT NULL) ; dev/test : null
-                .build();
-        userRepository.save(admin);
-
-        log.info("=================================================================");
-        log.info(" Compte administrateur par defaut cree :");
-        log.info("   Email        : {}", adminEmail);
-        log.info("   Mot de passe : {}", adminPassword);
-        log.info("   (a modifier des la premiere connexion)");
-        log.info("=================================================================");
-    }
-
-    /**
-     * Id de la boutique par defaut (prod : table boutiques presente via Flyway V9). En dev/test
-     * (schema create-drop sans la table), renvoie null : la colonne users.boutique_id y est nullable.
-     */
-    private Long defaultBoutiqueId() {
-        try {
-            return jdbcTemplate.queryForObject(
-                    "SELECT id FROM boutiques WHERE slug = 'default'", Long.class);
-        } catch (DataAccessException e) {
-            return null;
-        }
+        // Bootstrap : la boutique par defaut (creee par Flyway V9) est possedee par l'admin.
+        final Long adminId = admin.getId();
+        boutiqueRepository.findBySlug("default").ifPresent(shop -> {
+            if (shop.getOwnerUserId() == null) {
+                shop.setOwnerUserId(adminId);
+                boutiqueRepository.save(shop);
+            }
+            if (!shopMemberRepository.existsByShopIdAndUserId(shop.getId(), adminId)) {
+                shopMemberRepository.save(ShopMember.builder()
+                        .shopId(shop.getId()).userId(adminId).role(ShopMemberRole.OWNER).build());
+                log.info("Membership OWNER cree : {} -> boutique par defaut", adminEmail);
+            }
+        });
     }
 
     private void seedCategories() {

@@ -45,7 +45,7 @@ class SizeIntegrationTest extends AbstractPostgresIT {
     }
 
     private Long createSize(String label, Integer position) throws Exception {
-        String body = mockMvc.perform(post("/api/admin/sizes").with(user("admin").roles("ADMIN"))
+        String body = mockMvc.perform(post("/api/admin/sizes").with(user("admin").roles("SHOP_OWNER"))
                         .contentType(MediaType.APPLICATION_JSON).content(json(new SizeRequest(label, position))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
@@ -53,7 +53,7 @@ class SizeIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Creation S/M/L/XL/XXL + doublon insensible a la casse -> 409")
     void createAndUniqueness() throws Exception {
         for (String label : new String[]{"S", "M", "L", "XL", "XXL"}) {
@@ -68,7 +68,7 @@ class SizeIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "VENDEUR")
+    @WithMockUser(roles = "SHOP_VENDOR")
     @DisplayName("Catalogue trie par position (nulls en dernier) puis libelle")
     void orderedByPosition() throws Exception {
         createSize("L", 3);
@@ -83,7 +83,7 @@ class SizeIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Suppression d'une taille inutilisee : 204")
     void deleteUnused_noContent() throws Exception {
         Long id = createSize("Temp", null);
@@ -91,7 +91,7 @@ class SizeIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "VENDEUR")
+    @WithMockUser(roles = "SHOP_VENDOR")
     @DisplayName("Securite : VENDOR en ecriture -> 403")
     void vendorForbidden() throws Exception {
         mockMvc.perform(post("/api/admin/sizes")

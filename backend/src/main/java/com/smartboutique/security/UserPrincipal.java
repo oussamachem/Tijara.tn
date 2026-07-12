@@ -6,12 +6,15 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 /**
- * Adaptateur entre notre entite {@link User} et le contrat Spring Security {@link UserDetails}.
- * L'identite (username) est l'email ; l'autorite est "ROLE_<role>".
+ * Adaptateur User -> UserDetails. Phase A : le principal porte l'IDENTITE. Les seules autorites
+ * GLOBALES sont ROLE_PLATFORM_ADMIN (si {@code isPlatformAdmin}). Les autorites de BOUTIQUE
+ * (ROLE_SHOP_OWNER / ROLE_SHOP_VENDOR) sont ajoutees par requete par le filtre X-Shop-Id, apres
+ * validation du membership.
  */
 @Getter
 public class UserPrincipal implements UserDetails {
@@ -20,24 +23,18 @@ public class UserPrincipal implements UserDetails {
     private final String email;
     private final String password;
     private final boolean active;
-    private final Long boutiqueId;
+    private final boolean platformAdmin;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
-        this(user, true);
-    }
-
-    /**
-     * @param boutiqueActive false si la boutique du user est SUSPENDED -> compte considere non actif
-     *                       (connexion refusee, meme pour un user actif).
-     */
-    public UserPrincipal(User user, boolean boutiqueActive) {
         this.id = user.getId();
         this.email = user.getEmail();
         this.password = user.getPassword();
-        this.active = user.isActive() && boutiqueActive;
-        this.boutiqueId = user.getBoutiqueId();
-        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        this.active = user.isActive();
+        this.platformAdmin = user.isPlatformAdmin();
+        List<GrantedAuthority> auths = new ArrayList<>();
+        if (user.isPlatformAdmin()) auths.add(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN"));
+        this.authorities = List.copyOf(auths);
     }
 
     @Override
@@ -70,7 +67,6 @@ public class UserPrincipal implements UserDetails {
         return true;
     }
 
-    /** Un compte desactive (active=false) est considere comme non active : connexion refusee. */
     @Override
     public boolean isEnabled() {
         return active;

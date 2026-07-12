@@ -4,11 +4,13 @@ import com.smartboutique.dto.BoutiqueResponse;
 import com.smartboutique.dto.CreateBoutiqueRequest;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.BoutiqueStatus;
-import com.smartboutique.entity.Role;
+import com.smartboutique.entity.ShopMember;
+import com.smartboutique.entity.ShopMemberRole;
 import com.smartboutique.entity.User;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.repository.BoutiqueRepository;
+import com.smartboutique.repository.ShopMemberRepository;
 import com.smartboutique.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,37 +35,44 @@ public class BoutiqueService {
 
     private final BoutiqueRepository boutiqueRepository;
     private final UserRepository userRepository;
+    private final ShopMemberRepository shopMemberRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public BoutiqueResponse create(CreateBoutiqueRequest request) {
-        if (userRepository.existsByEmail(request.adminEmail())) {
+        String email = request.adminEmail().trim().toLowerCase(Locale.ROOT);
+        if (userRepository.existsByEmail(email)) {
             throw new BusinessException(
-                    "Un utilisateur existe deja avec l'email " + request.adminEmail(), HttpStatus.CONFLICT);
+                    "Un utilisateur existe deja avec l'email " + email, HttpStatus.CONFLICT);
         }
         String slug = uniqueSlug(request.slug() != null && !request.slug().isBlank()
                 ? slugify(request.slug()) : slugify(request.name()));
 
+        // 1) Le compte OWNER (identite globale) est cree d'abord.
+        String adminName = (request.adminName() != null && !request.adminName().isBlank())
+                ? request.adminName().trim() : "Proprietaire " + request.name().trim();
+        User owner = userRepository.save(User.builder()
+                .fullName(adminName)
+                .email(email)
+                .password(passwordEncoder.encode(request.adminPassword()))
+                .active(true)
+                .platformAdmin(false)
+                .build());
+
+        // 2) La boutique, rattachee a son proprietaire.
         Boutique boutique = boutiqueRepository.save(Boutique.builder()
                 .name(request.name().trim())
                 .slug(slug)
                 .status(BoutiqueStatus.ACTIVE)
+                .ownerUserId(owner.getId())
                 .build());
 
-        // Admin initial de la boutique (role ADMIN, scope au nouveau tenant).
-        String adminName = (request.adminName() != null && !request.adminName().isBlank())
-                ? request.adminName().trim() : "Administrateur " + boutique.getName();
-        userRepository.save(User.builder()
-                .fullName(adminName)
-                .email(request.adminEmail().trim().toLowerCase(Locale.ROOT))
-                .password(passwordEncoder.encode(request.adminPassword()))
-                .role(Role.ADMIN)
-                .active(true)
-                .boutiqueId(boutique.getId())
-                .build());
+        // 3) Le membership OWNER (role contextuel).
+        shopMemberRepository.save(ShopMember.builder()
+                .shopId(boutique.getId()).userId(owner.getId()).role(ShopMemberRole.OWNER).build());
 
-        log.info("[PLATEFORME] Boutique '{}' (slug={}, id={}) creee avec son admin {}",
-                boutique.getName(), slug, boutique.getId(), request.adminEmail());
+        log.info("[PLATEFORME] Boutique '{}' (slug={}, id={}) creee, proprietaire {}",
+                boutique.getName(), slug, boutique.getId(), email);
         return BoutiqueResponse.of(boutique);
     }
 

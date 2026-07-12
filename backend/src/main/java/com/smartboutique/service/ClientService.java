@@ -2,7 +2,6 @@ package com.smartboutique.service;
 
 import com.smartboutique.dto.AuthResponse;
 import com.smartboutique.dto.ClientRegisterRequest;
-import com.smartboutique.entity.Role;
 import com.smartboutique.entity.User;
 import com.smartboutique.exception.DuplicateResourceException;
 import com.smartboutique.mapper.UserMapper;
@@ -37,9 +36,8 @@ public class ClientService {
                 .fullName(request.fullName().trim())
                 .email(email)
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.CLIENT)
                 .active(true)
-                .boutiqueId(null)   // compte global : aucune boutique fixe
+                .platformAdmin(false)   // compte global : aucun role fixe, aucune boutique
                 .build());
         log.info("Compte CLIENT cree : {}", email);
         return AuthResponse.of(jwtService.generateToken(client), userMapper.toResponse(client));

@@ -13,7 +13,7 @@ public class UserMapper {
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
-                user.getRole(),
+                user.isPlatformAdmin(),
                 user.isActive(),
                 user.getCreatedAt()
         );

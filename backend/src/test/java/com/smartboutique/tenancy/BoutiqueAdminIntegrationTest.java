@@ -1,9 +1,11 @@
 package com.smartboutique.tenancy;
 
 import com.smartboutique.entity.BoutiqueStatus;
+import com.smartboutique.entity.ShopMemberRole;
+import com.smartboutique.entity.User;
 import com.smartboutique.repository.BoutiqueRepository;
+import com.smartboutique.repository.ShopMemberRepository;
 import com.smartboutique.repository.UserRepository;
-import com.smartboutique.security.JwtService;
 import com.smartboutique.support.AbstractPostgresIT;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,8 +24,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Phase 2 — Espace SUPER_ADMIN : creation de boutiques + admin initial, JWT porte le bon
- * boutique_id, suspension bloque le login, acces reserve au SUPER_ADMIN.
+ * Phase A — Espace PLATEFORME : le PLATFORM_ADMIN cree des boutiques (chacune avec son OWNER +
+ * membership), suspend/reactive. Login = identite (une boutique suspendue n'empeche plus la
+ * connexion, seulement l'acces a la boutique). Acces plateforme reserve au PLATFORM_ADMIN.
  */
 @AutoConfigureMockMvc
 @WithUserDetails(value = "superadmin@smartboutique.com", userDetailsServiceBeanName = "customUserDetailsService")
@@ -32,7 +35,7 @@ class BoutiqueAdminIntegrationTest extends AbstractPostgresIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private BoutiqueRepository boutiqueRepository;
     @Autowired private UserRepository userRepository;
-    @Autowired private JwtService jwtService;
+    @Autowired private ShopMemberRepository shopMemberRepository;
 
     @BeforeEach @AfterEach
     void clean() {
@@ -42,92 +45,86 @@ class BoutiqueAdminIntegrationTest extends AbstractPostgresIT {
         boutiqueRepository.deleteAll();
     }
 
-    private String createBoutique(String name, String adminEmail) {
+    private String body(String name, String adminEmail) {
         return "{\"name\":\"" + name + "\",\"adminEmail\":\"" + adminEmail
                 + "\",\"adminPassword\":\"Passw0rd!\",\"adminName\":\"Admin " + name + "\"}";
     }
 
-    private String login(String email, String pwd) throws Exception {
-        String body = "{\"email\":\"" + email + "\",\"password\":\"" + pwd + "\"}";
-        String json = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        return com.jayway.jsonpath.JsonPath.read(json, "$.token");
+    private long create(String name, String adminEmail) throws Exception {
+        String json = mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
+                        .content(body(name, adminEmail)))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return ((Number) com.jayway.jsonpath.JsonPath.read(json, "$.id")).longValue();
+    }
+
+    private void login(String email, int expectedStatus) throws Exception {
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"Passw0rd!\"}"))
+                .andExpect(status().is(expectedStatus));
     }
 
     @Test
-    @DisplayName("SUPER_ADMIN cree 2 boutiques + admins ; chaque admin logge -> JWT avec SON boutique_id")
-    void createTwoBoutiques_eachAdminGetsOwnTenant() throws Exception {
-        String jsonA = mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                        .content(createBoutique("Boutique A", "admina@shopa.test")))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.slug").value("boutique-a"))
-                .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andReturn().getResponse().getContentAsString();
-        long idA = ((Number) com.jayway.jsonpath.JsonPath.read(jsonA, "$.id")).longValue();
-
-        String jsonB = mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                        .content(createBoutique("Boutique B", "adminb@shopb.test")))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        long idB = ((Number) com.jayway.jsonpath.JsonPath.read(jsonB, "$.id")).longValue();
-
-        // Chaque admin se connecte : le token porte le boutique_id de SA boutique.
-        assertThat(jwtService.extractBoutiqueId(login("admina@shopa.test", "Passw0rd!"))).isEqualTo(idA);
-        assertThat(jwtService.extractBoutiqueId(login("adminb@shopb.test", "Passw0rd!"))).isEqualTo(idB);
+    @DisplayName("PLATFORM_ADMIN cree 2 boutiques : chaque proprietaire a une membership OWNER de SA boutique")
+    void createTwoBoutiques_eachOwnerIsOwnerMember() throws Exception {
+        long idA = create("Boutique A", "owner.a@shop.test");
+        long idB = create("Boutique B", "owner.b@shop.test");
         assertThat(idA).isNotEqualTo(idB);
+
+        User ownerA = userRepository.findByEmail("owner.a@shop.test").orElseThrow();
+        User ownerB = userRepository.findByEmail("owner.b@shop.test").orElseThrow();
+        assertThat(shopMemberRepository.findByShopIdAndUserId(idA, ownerA.getId()))
+                .get().extracting(m -> m.getRole()).isEqualTo(ShopMemberRole.OWNER);
+        assertThat(shopMemberRepository.findByShopIdAndUserId(idB, ownerB.getId()))
+                .get().extracting(m -> m.getRole()).isEqualTo(ShopMemberRole.OWNER);
+        // Le proprietaire n'est PAS membre de l'autre boutique.
+        assertThat(shopMemberRepository.existsByShopIdAndUserId(idB, ownerA.getId())).isFalse();
+        // Chacun peut se connecter (identite).
+        login("owner.a@shop.test", 200);
+        login("owner.b@shop.test", 200);
     }
 
     @Test
     @DisplayName("Meme nom deux fois -> slugs distincts (boutique-a, boutique-a-2)")
     void duplicateName_uniqueSlugs() throws Exception {
         mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                        .content(createBoutique("Boutique A", "a1@shopa.test")))
+                        .content(body("Boutique A", "a1@shopa.test")))
                 .andExpect(jsonPath("$.slug").value("boutique-a"));
         mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                        .content(createBoutique("Boutique A", "a2@shopa.test")))
+                        .content(body("Boutique A", "a2@shopa.test")))
                 .andExpect(jsonPath("$.slug").value("boutique-a-2"));
     }
 
     @Test
-    @DisplayName("Email admin deja pris -> 409")
-    void duplicateAdminEmail_conflict() throws Exception {
+    @DisplayName("Email proprietaire deja pris -> 409")
+    void duplicateOwnerEmail_conflict() throws Exception {
         mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                .content(createBoutique("Shop X", "dup@shopx.test"))).andExpect(status().isCreated());
+                .content(body("Shop X", "dup@shopx.test"))).andExpect(status().isCreated());
         mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                .content(createBoutique("Shop Y", "dup@shopx.test"))).andExpect(status().isConflict());
+                .content(body("Shop Y", "dup@shopx.test"))).andExpect(status().isConflict());
     }
 
     @Test
-    @DisplayName("Boutique suspendue -> son admin ne peut plus se connecter (403)")
-    void suspendedBoutique_blocksAdminLogin() throws Exception {
-        String json = mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                        .content(createBoutique("Shop S", "admins@shops.test")))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        long id = ((Number) com.jayway.jsonpath.JsonPath.read(json, "$.id")).longValue();
-
-        // Avant suspension : login OK.
-        login("admins@shops.test", "Passw0rd!");
+    @DisplayName("Suspension/reactivation : le login (identite) reste possible dans les deux etats")
+    void suspendReactivate_loginAlwaysWorks() throws Exception {
+        long id = create("Shop S", "owner.s@shop.test");
+        login("owner.s@shop.test", 200);
 
         mockMvc.perform(post("/api/admin/boutiques/{id}/suspend", id))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
+        // Phase A : la suspension bloque l'ACCES a la boutique, pas la connexion (compte global).
+        login("owner.s@shop.test", 200);
 
-        // Apres suspension : login refuse (compte considere desactive).
-        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"admins@shops.test\",\"password\":\"Passw0rd!\"}"))
-                .andExpect(status().isForbidden());
-
-        // Reactivation -> login de nouveau possible.
         mockMvc.perform(post("/api/admin/boutiques/{id}/reactivate", id))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACTIVE"));
         assertThat(boutiqueRepository.findById(id).orElseThrow().getStatus()).isEqualTo(BoutiqueStatus.ACTIVE);
-        login("admins@shops.test", "Passw0rd!");
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    @DisplayName("Un ADMIN de boutique n'accede pas a l'espace plateforme -> 403")
-    void boutiqueAdmin_cannotAccessPlatform() throws Exception {
+    @WithMockUser(roles = "SHOP_OWNER")
+    @DisplayName("Un OWNER de boutique n'accede pas a l'espace plateforme -> 403")
+    void shopOwner_cannotAccessPlatform() throws Exception {
         mockMvc.perform(get("/api/admin/boutiques")).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/admin/boutiques").contentType(MediaType.APPLICATION_JSON)
-                .content(createBoutique("Hack", "hack@x.test"))).andExpect(status().isForbidden());
+                .content(body("Hack", "hack@x.test"))).andExpect(status().isForbidden());
     }
 }

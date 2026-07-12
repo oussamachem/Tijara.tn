@@ -31,14 +31,14 @@ class OrderManagementIT extends AbstractTenantRlsIT {
     private String adminToken;      // admin de la boutique "order-shop"
     private String otherAdminToken; // admin d'une autre boutique (isolation)
     private String clientToken;
-    private long shopId;
+    private long shopId, otherId;
     private final String slug = "order-shop";
 
     @BeforeAll
     void setUp() throws Exception {
         String sa = login("superadmin@smartboutique.com", "Super@123");
         shopId = createBoutique(sa, "Order Shop", "order.admin@shop.test");
-        createBoutique(sa, "Other Shop", "other.admin@shop.test");
+        otherId = createBoutique(sa, "Other Shop", "other.admin@shop.test");
         adminToken = login("order.admin@shop.test", "Passw0rd!");
         otherAdminToken = login("other.admin@shop.test", "Passw0rd!");
         clientToken = registerClient("order.client@shop.test");
@@ -53,7 +53,7 @@ class OrderManagementIT extends AbstractTenantRlsIT {
         long orderId = placeOrder(variant, 2);
         assertThat(stock(variant)).isEqualTo(5);   // pas de decrement a la commande (C3)
 
-        changeStatus(adminToken, orderId, "CONFIRMEE")
+        changeStatus(adminToken, shopId, orderId, "CONFIRMEE")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMEE"))
                 .andExpect(jsonPath("$.history.length()").value(2));   // creation + confirmation
@@ -65,14 +65,14 @@ class OrderManagementIT extends AbstractTenantRlsIT {
     void cancel_restoresStockOnlyIfDecremented() throws Exception {
         long variant = seedVariant(shopId, "S2", 5);
         long confirmed = placeOrder(variant, 2);
-        changeStatus(adminToken, confirmed, "CONFIRMEE").andExpect(status().isOk());
+        changeStatus(adminToken, shopId, confirmed, "CONFIRMEE").andExpect(status().isOk());
         assertThat(stock(variant)).isEqualTo(3);
-        changeStatus(adminToken, confirmed, "ANNULEE").andExpect(status().isOk());
+        changeStatus(adminToken, shopId, confirmed, "ANNULEE").andExpect(status().isOk());
         assertThat(stock(variant)).as("stock restaure").isEqualTo(5);
 
         // Annulation d'une commande NON confirmee : stock inchange.
         long pending = placeOrder(variant, 1);
-        changeStatus(adminToken, pending, "ANNULEE").andExpect(status().isOk());
+        changeStatus(adminToken, shopId, pending, "ANNULEE").andExpect(status().isOk());
         assertThat(stock(variant)).isEqualTo(5);
     }
 
@@ -81,7 +81,7 @@ class OrderManagementIT extends AbstractTenantRlsIT {
     void confirm_insufficientStock_conflict() throws Exception {
         long variant = seedVariant(shopId, "S3", 1);
         long orderId = placeOrder(variant, 3);   // commande 3 pour un stock de 1
-        changeStatus(adminToken, orderId, "CONFIRMEE").andExpect(status().isConflict());
+        changeStatus(adminToken, shopId, orderId, "CONFIRMEE").andExpect(status().isConflict());
         assertThat(stock(variant)).isEqualTo(1); // inchange, jamais negatif
     }
 
@@ -93,11 +93,11 @@ class OrderManagementIT extends AbstractTenantRlsIT {
         long variant = seedVariant(shopId, "S4", 10);
         long orderId = placeOrder(variant, 1);
 
-        changeStatus(adminToken, orderId, "PRETE").andExpect(status().isConflict());        // saut interdit
-        changeStatus(adminToken, orderId, "CONFIRMEE").andExpect(status().isOk());
-        changeStatus(adminToken, orderId, "PRETE").andExpect(status().isOk());
-        changeStatus(adminToken, orderId, "RECUPEREE").andExpect(status().isOk());
-        changeStatus(adminToken, orderId, "ANNULEE").andExpect(status().isConflict());      // terminal
+        changeStatus(adminToken, shopId, orderId, "PRETE").andExpect(status().isConflict());        // saut interdit
+        changeStatus(adminToken, shopId, orderId, "CONFIRMEE").andExpect(status().isOk());
+        changeStatus(adminToken, shopId, orderId, "PRETE").andExpect(status().isOk());
+        changeStatus(adminToken, shopId, orderId, "RECUPEREE").andExpect(status().isOk());
+        changeStatus(adminToken, shopId, orderId, "ANNULEE").andExpect(status().isConflict());      // terminal
     }
 
     // ------------------------------ Isolation ------------------------------
@@ -108,22 +108,25 @@ class OrderManagementIT extends AbstractTenantRlsIT {
         long variant = seedVariant(shopId, "S5", 5);
         long orderId = placeOrder(variant, 1);
 
-        // admin d'order-shop voit sa commande
-        mockMvc.perform(get("/api/admin/orders").header("Authorization", "Bearer " + adminToken))
+        // admin d'order-shop voit sa commande (X-Shop-Id = sa boutique)
+        mockMvc.perform(get("/api/admin/orders").header("Authorization", "Bearer " + adminToken).header("X-Shop-Id", shopId))
                 .andExpect(jsonPath("$[?(@.id==" + orderId + ")]").exists());
-        // admin de other-shop ne la voit pas, ni en detail, ni en action
-        mockMvc.perform(get("/api/admin/orders").header("Authorization", "Bearer " + otherAdminToken))
+        // admin de other-shop, dans SA boutique, ne la voit pas (RLS), ni en detail, ni en action
+        mockMvc.perform(get("/api/admin/orders").header("Authorization", "Bearer " + otherAdminToken).header("X-Shop-Id", otherId))
                 .andExpect(jsonPath("$[?(@.id==" + orderId + ")]").doesNotExist());
-        mockMvc.perform(get("/api/admin/orders/{id}", orderId).header("Authorization", "Bearer " + otherAdminToken))
+        mockMvc.perform(get("/api/admin/orders/{id}", orderId).header("Authorization", "Bearer " + otherAdminToken).header("X-Shop-Id", otherId))
                 .andExpect(status().isNotFound());
-        changeStatus(otherAdminToken, orderId, "CONFIRMEE").andExpect(status().isNotFound());
+        changeStatus(otherAdminToken, otherId, orderId, "CONFIRMEE").andExpect(status().isNotFound());
+        // Et s'il tente le contexte d'order-shop dont il n'est pas membre -> 403.
+        changeStatus(otherAdminToken, shopId, orderId, "CONFIRMEE").andExpect(status().isForbidden());
         assertThat(stock(variant)).isEqualTo(5);   // non touche par l'autre boutique
     }
 
     // -------------------------------- helpers --------------------------------
 
-    private org.springframework.test.web.servlet.ResultActions changeStatus(String token, long id, String s) throws Exception {
+    private org.springframework.test.web.servlet.ResultActions changeStatus(String token, long shopId, long id, String s) throws Exception {
         return mockMvc.perform(post("/api/admin/orders/{id}/status", id).header("Authorization", "Bearer " + token)
+                .header("X-Shop-Id", shopId)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"" + s + "\"}"));
     }
 

@@ -75,7 +75,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
         var req = new ProductRequest(reference, "Produit", "desc", catId,
                 new BigDecimal("20.00"), new BigDecimal("49.90"),
                 List.of(new VariantCellRequest(colorId, sizeId, 5, 0)));
-        String body = mockMvc.perform(post("/api/admin/products").with(user("admin").roles("ADMIN"))
+        String body = mockMvc.perform(post("/api/admin/products").with(user("admin").roles("SHOP_OWNER"))
                         .contentType(MediaType.APPLICATION_JSON).content(json(req)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
@@ -89,7 +89,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
     private JsonNode uploadImages(Long pid, MockMultipartFile... files) throws Exception {
         MockMultipartHttpServletRequestBuilder req = multipart("/api/admin/products/{id}/images", pid);
         Stream.of(files).forEach(req::file);
-        String body = mockMvc.perform(req.with(user("admin").roles("ADMIN")))
+        String body = mockMvc.perform(req.with(user("admin").roles("SHOP_OWNER")))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body);
@@ -114,7 +114,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
         mockMvc.perform(multipart("/api/admin/products/{id}/images", pid)
                         .file(png("1")).file(png("2")).file(png("3"))
                         .file(png("4")).file(png("5")).file(png("6")).file(png("7"))
-                        .with(user("admin").roles("ADMIN")))
+                        .with(user("admin").roles("SHOP_OWNER")))
                 .andExpect(status().isBadRequest());
         assertThat(productImageRepository.countByProductId(pid)).isZero();
     }
@@ -129,7 +129,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
         String secondUrl = p.get("images").get(1).get("url").asText();
 
         String body = mockMvc.perform(delete("/api/admin/products/{id}/images/{imageId}", pid, coverId)
-                        .with(user("admin").roles("ADMIN")))
+                        .with(user("admin").roles("SHOP_OWNER")))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         JsonNode after = objectMapper.readTree(body);
@@ -147,7 +147,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
         long id1 = p.get("images").get(1).get("id").asLong();
         long id2 = p.get("images").get(2).get("id").asLong();
         String body = mockMvc.perform(put("/api/admin/products/{id}/images/order", pid)
-                        .with(user("admin").roles("ADMIN"))
+                        .with(user("admin").roles("SHOP_OWNER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(new ImageReorderRequest(List.of(id2, id0, id1)))))
                 .andExpect(status().isOk())
@@ -162,7 +162,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
         Long pid = createProduct("REF-CASCADE");
         JsonNode p = uploadImages(pid, png("a.png"), png("b.png"));
         Path f0 = fileOf(p.get("images").get(0).get("url").asText());
-        mockMvc.perform(delete("/api/admin/products/{id}", pid).with(user("admin").roles("ADMIN")))
+        mockMvc.perform(delete("/api/admin/products/{id}", pid).with(user("admin").roles("SHOP_OWNER")))
                 .andExpect(status().isNoContent());
         assertThat(productImageRepository.countByProductId(pid)).isZero();
         assertThat(Files.exists(f0)).isFalse();
@@ -174,7 +174,7 @@ class ProductImageIntegrationTest extends AbstractPostgresIT {
         Long pid = createProduct("REF-SEC");
         mockMvc.perform(multipart("/api/admin/products/{id}/images", pid)
                         .file(png("a.png"))
-                        .with(user("vendor").roles("VENDEUR")))
+                        .with(user("vendor").roles("SHOP_VENDOR")))
                 .andExpect(status().isForbidden());
     }
 }

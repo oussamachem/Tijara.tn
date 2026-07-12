@@ -1,4 +1,5 @@
 package com.smartboutique.sale;
+import com.smartboutique.support.WithShopMember;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartboutique.entity.*;
@@ -22,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Feature A — Ticket cadeau : tenders multiples, usage unique global, expiration, denominations. */
 @AutoConfigureMockMvc
-@WithUserDetails(value = "admin@smartboutique.com", userDetailsServiceBeanName = "customUserDetailsService")
+@WithShopMember
 class GiftTicketIntegrationTest extends AbstractPostgresIT {
 
     @Autowired private MockMvc mockMvc;

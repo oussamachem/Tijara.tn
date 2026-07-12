@@ -56,20 +56,21 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         // Sonde de sante (healthcheck Docker) + info. Le reste d'Actuator reste protege.
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
-                        // Marketplace : commandes reservees au CLIENT (declare AVANT le catalogue public).
-                        .requestMatchers("/api/shops/*/orders", "/api/shops/*/orders/**").hasRole("CLIENT")
+                        // Marketplace : passer commande = tout user AUTHENTIFIE (compte global, P1).
+                        // (Declare AVANT le catalogue public ; le tenant vient du slug, pas de X-Shop-Id.)
+                        .requestMatchers("/api/shops/*/orders", "/api/shops/*/orders/**").authenticated()
                         // Annuaire + catalogue = PUBLIC (lecture, resolution du tenant par le slug).
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
-                        // Espace PLATEFORME : gestion des boutiques reservee au SUPER_ADMIN.
+                        // Espace PLATEFORME : moderation des boutiques reservee a l'admin plateforme.
                         // (Plus specifique -> declare AVANT la regle generale /api/admin/**.)
-                        .requestMatchers("/api/admin/boutiques/**").hasRole("SUPER_ADMIN")
-                        // Back-office d'UNE boutique reserve a son administrateur.
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // Tableau de bord reserve a l'administrateur.
-                        .requestMatchers("/api/dashboard").hasRole("ADMIN")
-                        // Endpoints internes (produits, ventes, stock...) : ADMIN ou VENDEUR d'une boutique.
-                        // Le CLIENT (marketplace) n'y accede pas ; le SUPER_ADMIN reste sur l'espace plateforme.
-                        .anyRequest().hasAnyRole("ADMIN", "VENDEUR"))
+                        .requestMatchers("/api/admin/boutiques/**").hasRole("PLATFORM_ADMIN")
+                        // Back-office d'UNE boutique : reserve au PROPRIETAIRE (OWNER) de la boutique active.
+                        .requestMatchers("/api/admin/**").hasRole("SHOP_OWNER")
+                        // Tableau de bord : proprietaire de la boutique active.
+                        .requestMatchers("/api/dashboard").hasRole("SHOP_OWNER")
+                        // Endpoints internes (produits, ventes, stock...) : OWNER ou VENDOR de la boutique
+                        // active (autorite posee par le filtre X-Shop-Id apres validation du membership).
+                        .anyRequest().hasAnyRole("SHOP_OWNER", "SHOP_VENDOR"))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))

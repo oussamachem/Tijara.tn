@@ -35,6 +35,10 @@ public class Boutique {
     @Builder.Default
     private BoutiqueStatus status = BoutiqueStatus.ACTIVE;
 
+    /** Proprietaire (user OWNER). Nullable au bootstrap (boutique par defaut avant le seed admin). */
+    @Column(name = "owner_user_id")
+    private Long ownerUserId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

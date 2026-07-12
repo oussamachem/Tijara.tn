@@ -32,23 +32,19 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Role role;
+    /**
+     * IDENTITE globale (Phase A) : plus de role global ni de boutique figee sur le user. Le role
+     * est CONTEXTUEL (cf. {@link ShopMember} : OWNER/VENDOR d'une boutique). Le seul attribut global
+     * d'autorisation est {@code isPlatformAdmin} (ex-SUPER_ADMIN, moderation plateforme).
+     */
+    @Column(name = "is_platform_admin", nullable = false)
+    @Builder.Default
+    private boolean platformAdmin = false;
 
     /** Un compte desactive (false) ne peut pas se connecter. */
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
-
-    /**
-     * Tenant (boutique) de l'utilisateur. Sert a poser le contexte tenant apres login (claim JWT +
-     * RLS). Nullable cote entite : les profils dev/test (schema create-drop) n'ont pas la contrainte
-     * NOT NULL ; en prod la colonne est NOT NULL (Flyway V9). Un futur SUPER_ADMIN plateforme peut
-     * ne pas etre rattache a une boutique.
-     */
-    @Column(name = "boutique_id")
-    private Long boutiqueId;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

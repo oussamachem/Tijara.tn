@@ -1,4 +1,5 @@
 package com.smartboutique.reservation;
+import com.smartboutique.support.WithShopMember;
 
 import com.smartboutique.dto.ReservationItemRequest;
 import com.smartboutique.dto.ReservationPaymentRequest;
@@ -37,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * expiration/annulation avec stock rendu + acompte retenu (B6), concurrence au grain variante.
  */
 @AutoConfigureMockMvc
-@WithUserDetails(value = "admin@smartboutique.com", userDetailsServiceBeanName = "customUserDetailsService")
+@WithShopMember
 class ReservationIntegrationTest extends AbstractPostgresIT {
 
     @Autowired private MockMvc mockMvc;

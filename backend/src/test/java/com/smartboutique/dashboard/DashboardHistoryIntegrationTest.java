@@ -1,4 +1,5 @@
 package com.smartboutique.dashboard;
+import com.smartboutique.support.WithShopMember;
 
 import com.smartboutique.dto.ReturnRequest;
 import com.smartboutique.dto.SaleItemRequest;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Tableau de bord et historique au grain VARIANTE (Phase 9), donnees re-baselinees. */
 @AutoConfigureMockMvc
-@WithUserDetails(value = "admin@smartboutique.com", userDetailsServiceBeanName = "customUserDetailsService")
+@WithShopMember
 class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
 
     @Autowired private MockMvc mockMvc;
@@ -119,7 +120,7 @@ class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
     void salesHistory_filteredBySeller() throws Exception {
         User seller2 = userRepository.save(User.builder()
                 .fullName("Vendeur 2").email("seller2@smartboutique.com")
-                .password(passwordEncoder.encode("x")).role(Role.VENDEUR).active(true).build());
+                .password(passwordEncoder.encode("x")).active(true).build());
         sale(seller2.getId(), List.of(new SaleItemRequest(p1v, 1)));
 
         mockMvc.perform(get("/api/admin/sales").param("sellerId", adminId.toString()))
@@ -156,7 +157,7 @@ class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
     void myHistory_returnsOnlyCallerSales() throws Exception {
         User seller2 = userRepository.save(User.builder()
                 .fullName("Vendeur 2").email("seller2@smartboutique.com")
-                .password(passwordEncoder.encode("x")).role(Role.VENDEUR).active(true).build());
+                .password(passwordEncoder.encode("x")).active(true).build());
         sale(seller2.getId(), List.of(new SaleItemRequest(p1v, 1)));
 
         mockMvc.perform(get("/api/sales/mine"))
@@ -166,7 +167,7 @@ class DashboardHistoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "VENDEUR")
+    @WithMockUser(roles = "SHOP_VENDOR")
     @DisplayName("Acces dashboard refuse a un VENDEUR : 403")
     void dashboard_forbiddenForSeller() throws Exception {
         mockMvc.perform(get("/api/dashboard")).andExpect(status().isForbidden());

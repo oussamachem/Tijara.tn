@@ -1,12 +1,14 @@
 package com.smartboutique.service;
 
 import com.smartboutique.dto.*;
-import com.smartboutique.entity.Role;
+import com.smartboutique.entity.ShopMember;
+import com.smartboutique.entity.ShopMemberRole;
 import com.smartboutique.entity.User;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.DuplicateResourceException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.UserMapper;
+import com.smartboutique.repository.ShopMemberRepository;
 import com.smartboutique.repository.UserRepository;
 import com.smartboutique.tenancy.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Gestion des utilisateurs : profil de l'utilisateur connecte et administration des vendeurs.
+ * Gestion des utilisateurs : profil de l'utilisateur connecte et administration des vendeurs de la
+ * BOUTIQUE ACTIVE. Phase A : le vendeur est un compte + une membership VENDOR (shop_members) ; le
+ * scoping se fait par la boutique active (X-Shop-Id -> TenantContext), garanti par la garde OWNER.
  */
 @Slf4j
 @Service
@@ -27,6 +31,7 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final ShopMemberRepository shopMemberRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
 
@@ -40,7 +45,6 @@ public class UserService {
     @Transactional
     public UserResponse updateProfile(Long userId, UpdateProfileRequest request) {
         User user = findUser(userId);
-        // Verifie l'unicite de l'email si modifie.
         if (!user.getEmail().equalsIgnoreCase(request.email())
                 && userRepository.existsByEmail(request.email())) {
             throw new DuplicateResourceException("Cet email est deja utilise");
@@ -65,13 +69,11 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> listSellers() {
-        // users n'a pas de RLS (login pre-tenant) -> on scope explicitement a la boutique courante.
-        // tenant null (hors requete authentifiee : tests, taches) -> pas de restriction.
-        Long tenant = TenantContext.get();
-        List<User> sellers = (tenant == null)
-                ? userRepository.findByRole(Role.VENDEUR)
-                : userRepository.findByRoleAndBoutiqueId(Role.VENDEUR, tenant);
-        return sellers.stream().map(userMapper::toResponse).toList();
+        Long shopId = TenantContext.get();
+        if (shopId == null) return List.of();
+        List<Long> ids = shopMemberRepository.findByShopIdAndRole(shopId, ShopMemberRole.VENDOR)
+                .stream().map(ShopMember::getUserId).toList();
+        return userRepository.findAllById(ids).stream().map(userMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -81,19 +83,21 @@ public class UserService {
 
     @Transactional
     public UserResponse createSeller(CreateSellerRequest request) {
+        Long shopId = requireShop();
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateResourceException("Cet email est deja utilise");
         }
-        User seller = User.builder()
+        User seller = userRepository.save(User.builder()
                 .fullName(request.fullName())
-                .email(request.email())
+                .email(request.email().trim().toLowerCase())
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.VENDEUR)
                 .active(true)
-                .boutiqueId(TenantContext.get())   // rattache le vendeur a la boutique de l'admin
-                .build();
-        seller = userRepository.save(seller);
-        log.info("Vendeur cree : {} (id={})", seller.getEmail(), seller.getId());
+                .platformAdmin(false)
+                .build());
+        // Membership VENDOR sur la boutique active (le vendeur n'a acces qu'a cette boutique).
+        shopMemberRepository.save(ShopMember.builder()
+                .shopId(shopId).userId(seller.getId()).role(ShopMemberRole.VENDOR).build());
+        log.info("Vendeur cree : {} (id={}) sur la boutique {}", seller.getEmail(), seller.getId(), shopId);
         return userMapper.toResponse(seller);
     }
 
@@ -109,7 +113,6 @@ public class UserService {
         return userMapper.toResponse(userRepository.save(seller));
     }
 
-    /** Desactivation d'un vendeur (action sensible -> tracee). */
     @Transactional
     public UserResponse setSellerActive(Long id, boolean active) {
         User seller = findSeller(id);
@@ -122,19 +125,25 @@ public class UserService {
 
     // --------------------------------- Helpers ---------------------------------
 
+    private Long requireShop() {
+        Long shopId = TenantContext.get();
+        if (shopId == null) throw new BusinessException("Aucune boutique active", HttpStatus.BAD_REQUEST);
+        return shopId;
+    }
+
     private User findUser(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", id));
     }
 
+    /** Un vendeur = membership VENDOR sur la boutique ACTIVE. Sinon 404 (pas de fuite inter-boutiques). */
     private User findSeller(Long id) {
-        User user = findUser(id);
-        // Scoping tenant : un admin ne voit/modifie QUE les vendeurs de SA boutique (sinon 404,
-        // pas de fuite). users n'ayant pas de RLS, ce controle est fait cote application.
-        Long tenant = TenantContext.get();
-        if (user.getRole() != Role.VENDEUR || (tenant != null && !tenant.equals(user.getBoutiqueId()))) {
+        Long shopId = TenantContext.get();
+        boolean vendorHere = shopId != null && shopMemberRepository.findByShopIdAndUserId(shopId, id)
+                .map(m -> m.getRole() == ShopMemberRole.VENDOR).orElse(false);
+        if (!vendorHere) {
             throw new ResourceNotFoundException("Vendeur", id);
         }
-        return user;
+        return findUser(id);
     }
 }

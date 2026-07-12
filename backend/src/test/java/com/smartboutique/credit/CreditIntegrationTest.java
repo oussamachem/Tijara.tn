@@ -1,4 +1,5 @@
 package com.smartboutique.credit;
+import com.smartboutique.support.WithShopMember;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartboutique.entity.*;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Module Credits sur PostgreSQL reel : stock, argent (BigDecimal), garde-fous, annulation, CA, securite. */
 @AutoConfigureMockMvc
-@WithUserDetails(value = "admin@smartboutique.com", userDetailsServiceBeanName = "customUserDetailsService")
+@WithShopMember
 class CreditIntegrationTest extends AbstractPostgresIT {
 
     @Autowired private MockMvc mockMvc;
@@ -197,9 +198,9 @@ class CreditIntegrationTest extends AbstractPostgresIT {
     @Test
     @DisplayName("Securite : VENDOR sur le module credits -> 403")
     void security_vendorForbidden() throws Exception {
-        mockMvc.perform(get("/api/admin/credits").with(user("v").roles("VENDEUR")))
+        mockMvc.perform(get("/api/admin/credits").with(user("v").roles("SHOP_VENDOR")))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/admin/credits").with(user("v").roles("VENDEUR"))
+        mockMvc.perform(post("/api/admin/credits").with(user("v").roles("SHOP_VENDOR"))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
     }

@@ -75,7 +75,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Creation cartesienne : 3 couleurs x 4 tailles = 12 variantes, references+QR uniques")
     void createProduct_cartesian() throws Exception {
         ProductRequest req = cartesian("CHEMISE", List.of(bleu, rouge, vert), List.of(sS, sM, sL, sXL), 5);
@@ -93,7 +93,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Reference produit en doublon : 409")
     void createProduct_duplicateReference_conflict() throws Exception {
         mockMvc.perform(post("/api/admin/products").contentType(MediaType.APPLICATION_JSON)
@@ -103,7 +103,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Taille inexistante (sizeId inconnu) : 404")
     void createProduct_unknownSize_notFound() throws Exception {
         mockMvc.perform(post("/api/admin/products").contentType(MediaType.APPLICATION_JSON)
@@ -112,7 +112,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Cellule en double dans la matrice (meme couleur+taille) : 400")
     void createProduct_duplicateCell_badRequest() throws Exception {
         var cells = List.of(new VariantCellRequest(bleu, sM, 3, 0), new VariantCellRequest(bleu, sM, 5, 0));
@@ -123,7 +123,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Produit sans variante : 400 (invariant)")
     void createProduct_noVariant_badRequest() throws Exception {
         var req = new ProductRequest("REF-EMPTY", "x", null, catId,
@@ -133,7 +133,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Tailles differentes par couleur : matrice non cartesienne (Noir{S,XL}, Rouge{XL}) -> 3 variantes")
     void createProduct_sizesPerColor() throws Exception {
         Long noir = Fixtures.color(colorRepository, "Noir").getId();
@@ -151,7 +151,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Ajout puis retrait de variante ; retrait de la derniere refuse (invariant)")
     void addAndRemoveVariant_invariant() throws Exception {
         MvcResult res = mockMvc.perform(post("/api/admin/products").contentType(MediaType.APPLICATION_JSON)
@@ -172,7 +172,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Suppression categorie rattachee a des produits : 409")
     void deleteCategory_withProducts_conflict() throws Exception {
         mockMvc.perform(post("/api/admin/products").contentType(MediaType.APPLICATION_JSON)
@@ -181,7 +181,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Suppression couleur utilisee par une variante : 409")
     void deleteColor_inUse_conflict() throws Exception {
         mockMvc.perform(post("/api/admin/products").contentType(MediaType.APPLICATION_JSON)
@@ -190,7 +190,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SHOP_OWNER")
     @DisplayName("Suppression taille utilisee par une variante : 409")
     void deleteSize_inUse_conflict() throws Exception {
         mockMvc.perform(post("/api/admin/products").contentType(MediaType.APPLICATION_JSON)
@@ -199,7 +199,7 @@ class ProductCategoryIntegrationTest extends AbstractPostgresIT {
     }
 
     @Test
-    @WithMockUser(roles = "VENDEUR")
+    @WithMockUser(roles = "SHOP_VENDOR")
     @DisplayName("Image PNG du QR Code d'une variante")
     void variantQrImage_returnsPng() throws Exception {
         var v = Fixtures.variant(productRepository, variantRepository, sizeRepository,

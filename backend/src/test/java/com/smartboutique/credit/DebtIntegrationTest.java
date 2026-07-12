@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Module Dettes fournisseurs : PAS d'effet stock, PAS d'effet CA, argent exact, garde-fous, suppression, securite. */
 @AutoConfigureMockMvc
-@WithMockUser(roles = "ADMIN")
+@WithMockUser(roles = "SHOP_OWNER")
 class DebtIntegrationTest extends AbstractPostgresIT {
 
     @Autowired private MockMvc mockMvc;
@@ -164,9 +164,9 @@ class DebtIntegrationTest extends AbstractPostgresIT {
     @Test
     @DisplayName("Securite : VENDOR -> 403")
     void security_vendorForbidden() throws Exception {
-        mockMvc.perform(get("/api/admin/debts").with(user("v").roles("VENDEUR")))
+        mockMvc.perform(get("/api/admin/debts").with(user("v").roles("SHOP_VENDOR")))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/admin/debts").with(user("v").roles("VENDEUR"))
+        mockMvc.perform(post("/api/admin/debts").with(user("v").roles("SHOP_VENDOR"))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
     }

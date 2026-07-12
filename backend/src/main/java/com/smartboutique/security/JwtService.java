@@ -13,7 +13,10 @@ import java.util.Date;
 
 /**
  * Generation et verification des access tokens JWT (HS256).
- * Le secret et la duree d'expiration sont externalises (variables d'environnement / application.yml).
+ *
+ * <p>Phase A : le token porte l'IDENTITE seule (user_id en subject, email, is_platform_admin).
+ * PLUS de role ni de boutique figee : le role est contextuel (shop_members) et la boutique active
+ * est resolue par requete via le header X-Shop-Id.</p>
  */
 @Service
 public class JwtService {
@@ -24,39 +27,34 @@ public class JwtService {
     public JwtService(
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.expiration-ms}") long expirationMs) {
-        // La cle HMAC doit faire au moins 256 bits (32 octets) ; le secret par defaut respecte cette contrainte.
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
     }
 
-    /** Genere un token contenant l'id (subject), l'email, le role et la boutique (tenant). */
+    /** Genere un token d'IDENTITE : subject = user id, + email + flag plateforme. */
     public String generateToken(User user) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
                 .claim("email", user.getEmail())
-                .claim("role", user.getRole().name())
-                .claim("boutique_id", user.getBoutiqueId())
+                .claim("platform_admin", user.isPlatformAdmin())
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)
                 .compact();
     }
 
-    /** Tenant (boutique) porte par le token, ou null (ex. SUPER_ADMIN plateforme). */
-    public Long extractBoutiqueId(String token) {
-        Number b = parse(token).get("boutique_id", Number.class);
-        return b != null ? b.longValue() : null;
-    }
-
-    /** Extrait l'email (claim) du token. Leve une exception JWT si le token est invalide ou expire. */
     public String extractEmail(String token) {
         return parse(token).get("email", String.class);
     }
 
     public Long extractUserId(String token) {
         return Long.valueOf(parse(token).getSubject());
+    }
+
+    public boolean extractPlatformAdmin(String token) {
+        return Boolean.TRUE.equals(parse(token).get("platform_admin", Boolean.class));
     }
 
     private Claims parse(String token) {
