@@ -10,6 +10,24 @@ body,
 
 body {
   @apply bg-slate-100 text-slate-800 antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ----------- Utilitaires mobile-first (espaces client & caisse) ----------- */
+/* Zones sûres iOS (encoche) pour les barres de navigation. */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+}
+.safe-top {
+  padding-top: calc(env(safe-area-inset-top, 0px));
+}
+/* Masque la barre de défilement horizontale des chips. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* ----------- Impression en masse des etiquettes QR (feat/qr-bulk-print) ----------- */

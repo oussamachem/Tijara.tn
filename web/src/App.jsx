@@ -1,55 +1,65 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedRoute from './components/ProtectedRoute.jsx';
-import Layout from './components/Layout.jsx';
+import { useAuth } from './context/AuthContext.jsx';
+import { useShop } from './context/ShopContext.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Products from './pages/Products.jsx';
-import Categories from './pages/Categories.jsx';
-import Colors from './pages/Colors.jsx';
-import Sizes from './pages/Sizes.jsx';
-import Sellers from './pages/Sellers.jsx';
-import SalesHistory from './pages/SalesHistory.jsx';
-import SaleDetail from './pages/SaleDetail.jsx';
-import Orders from './pages/Orders.jsx';
-import Credits from './pages/Credits.jsx';
-import CreditDetail from './pages/CreditDetail.jsx';
-import SupplierDebts from './pages/SupplierDebts.jsx';
-import DebtDetail from './pages/DebtDetail.jsx';
+
+// Code-split : chaque espace est un bundle séparé, chargé à la demande selon le rôle actif.
+// Un client ne télécharge jamais le code de l'admin, ni l'inverse.
+const AdminSpace = lazy(() => import('./spaces/AdminSpace.jsx'));
+const VendorSpace = lazy(() => import('./spaces/VendorSpace.jsx'));
+const ClientSpace = lazy(() => import('./spaces/ClientSpace.jsx'));
+const PlatformSpace = lazy(() => import('./spaces/PlatformSpace.jsx'));
+
+function FullScreen({ children }) {
+  return (
+    <div className="flex h-full items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3 text-slate-400">
+        <span className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
+        {children && <span className="text-sm">{children}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** Aiguillage role-aware : choisit l'espace selon le contexte actif (ShopContext). */
+function Workspace() {
+  const { user } = useAuth();
+  const { ready, mode, role, activeShopId } = useShop();
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!ready) return <FullScreen>Chargement de votre espace…</FullScreen>;
+
+  let space;
+  if (mode === 'platform') space = <PlatformSpace />;
+  else if (mode === 'shop' && role === 'OWNER') space = <AdminSpace />;
+  else if (mode === 'shop' && role === 'VENDOR') space = <VendorSpace />;
+  else space = <ClientSpace />;
+
+  // La `key` force le remontage complet au changement de contexte -> état + données repartis à neuf.
+  return (
+    <Suspense fallback={<FullScreen>Chargement…</FullScreen>}>
+      <div className="h-full" key={`${mode}:${activeShopId ?? '-'}`}>
+        {space}
+      </div>
+    </Suspense>
+  );
+}
 
 export default function App() {
   return (
     <Routes>
-      {/* Routes publiques */}
+      {/* Public (identité) */}
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* Routes protégées (admin) */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/produits" element={<Products />} />
-        <Route path="/categories" element={<Categories />} />
-        <Route path="/couleurs" element={<Colors />} />
-        <Route path="/tailles" element={<Sizes />} />
-        <Route path="/vendeurs" element={<Sellers />} />
-        <Route path="/commandes" element={<Orders />} />
-        <Route path="/historique" element={<SalesHistory />} />
-        <Route path="/ventes/:id" element={<SaleDetail />} />
-        <Route path="/credits" element={<Credits />} />
-        <Route path="/credits/:id" element={<CreditDetail />} />
-        <Route path="/dettes" element={<SupplierDebts />} />
-        <Route path="/dettes/:id" element={<DebtDetail />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Espace de travail role-aware (chaque espace gère son propre routage interne). */}
+      <Route path="/*" element={<Workspace />} />
     </Routes>
   );
 }

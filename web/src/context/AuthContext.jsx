@@ -15,11 +15,14 @@ function isTokenValid(token) {
   }
 }
 
+/**
+ * Auth = IDENTITÉ (compte global unique). Le login ne préjuge d'AUCUN rôle : c'est le ShopContext
+ * (via GET /api/me/shops) qui décide de l'espace (CLIENT / OWNER / VENDOR / PLATEFORME).
+ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     const raw = localStorage.getItem(USER_KEY);
-    // Au démarrage : session valide seulement si token présent ET non expiré.
     if (!token || !raw || !isTokenValid(token)) {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
@@ -28,11 +31,21 @@ export function AuthProvider({ children }) {
     return JSON.parse(raw);
   });
 
+  const persist = (token, u) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(u));
+    setUser(u);
+  };
+
   const login = async (email, password) => {
     const { data } = await authApi.login(email, password);
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-    setUser(data.user);
+    persist(data.token, data.user);
+    return data.user;
+  };
+
+  const register = async (fullName, email, password) => {
+    const { data } = await authApi.register(fullName, email, password);
+    persist(data.token, data.user);
     return data.user;
   };
 
@@ -43,7 +56,16 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isPlatformAdmin: !!user?.platformAdmin,
+        login,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,0 +1,19 @@
+{
+  "name": "Smart Boutique",
+  "short_name": "Boutique",
+  "description": "Gestion de boutique et marketplace — un seul compte, tous les rôles.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

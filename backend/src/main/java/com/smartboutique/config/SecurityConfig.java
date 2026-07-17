@@ -56,6 +56,11 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         // Sonde de sante (healthcheck Docker) + info. Le reste d'Actuator reste protege.
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        // Espace IDENTITE (aiguillage front, selecteur de boutique, profil) : au grain
+                        // identite, donc accessible a TOUT user authentifie (y compris client sans boutique)
+                        // SANS X-Shop-Id. Declare AVANT les regles de boutique pour ne pas tomber sur
+                        // anyRequest().hasAnyRole(SHOP_OWNER, SHOP_VENDOR) qui bloquerait un client.
+                        .requestMatchers("/api/me/**", "/api/profile/**").authenticated()
                         // Marketplace : passer commande = tout user AUTHENTIFIE (compte global, P1).
                         // (Declare AVANT le catalogue public ; le tenant vient du slug, pas de X-Shop-Id.)
                         .requestMatchers("/api/shops/*/orders", "/api/shops/*/orders/**").authenticated()

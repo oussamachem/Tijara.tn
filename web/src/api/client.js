@@ -9,19 +9,37 @@ const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
 });
 
-// Ajoute le JWT a chaque requete s'il est present.
+// -------------------------------------------------------------------------------------------------
+// Boutique active (X-Shop-Id). Source de vérité posée par le ShopContext.
+// L'en-tête n'est ajouté QUE si une boutique est active (mode "boutique" : OWNER/VENDOR) ET que la
+// route est SCOPÉE par tenant. On l'EXCLUT des routes d'authentification et des routes MARKETPLACE
+// publiques (/api/shops/**) dont le tenant est résolu par le SLUG, pas par X-Shop-Id (gate 2).
+// -------------------------------------------------------------------------------------------------
+let activeShopId = null;
+export function setActiveShopId(id) {
+  activeShopId = id != null ? String(id) : null;
+}
+export function getActiveShopId() {
+  return activeShopId;
+}
+
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  const url = config.url || '';
+  const isAuthRoute = url.includes('/api/auth/');
+  const isMarketplaceRoute = url.includes('/api/shops'); // catalogue/galerie/commandes -> tenant par slug
+  if (activeShopId != null && !isAuthRoute && !isMarketplaceRoute) {
+    config.headers['X-Shop-Id'] = activeShopId;
   }
   return config;
 });
 
-// 401 = session expiree UNIQUEMENT si on etait deja authentifie (token present) et
-// que l'appel n'est pas un endpoint d'authentification. Sinon (ex. login avec mauvais
-// mot de passe -> 401), on laisse l'erreur remonter au composant pour afficher le message,
-// sans purge ni redirection.
+// 401 = session expirée UNIQUEMENT si on était déjà authentifié (token présent) et que l'appel
+// n'est pas un endpoint d'authentification. Sinon (login mauvais mot de passe -> 401) on laisse
+// l'erreur remonter au composant. Un 403 (ex. X-Shop-Id d'une boutique dont on n'est pas membre)
+// N'EST PAS purgé : c'est une autorisation refusée, pas une session invalide.
 client.interceptors.response.use(
   (response) => response,
   (error) => {

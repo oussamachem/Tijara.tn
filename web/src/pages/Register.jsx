@@ -4,14 +4,12 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { apiError } from '../api/client.js';
 import { Button, Field, Input, Alert } from '../components/ui.jsx';
 
-/**
- * Login UNIFIÉ : identité (compte global). Aucun filtre de rôle — c'est le contexte (memberships)
- * qui décide de l'espace après connexion (client / propriétaire / vendeur / plateforme).
- */
-export default function Login() {
-  const { login } = useAuth();
+/** Inscription CLIENT (compte global). Après création, l'espace client s'ouvre automatiquement. */
+export default function Register() {
+  const { register } = useAuth();
   const navigate = useNavigate();
   const { state } = useLocation();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,13 +17,17 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await register(fullName.trim(), email.trim(), password);
       navigate(state?.from || '/', { replace: true });
     } catch (err) {
-      setError(apiError(err, 'Connexion impossible'));
+      setError(apiError(err, 'Inscription impossible'));
     } finally {
       setLoading(false);
     }
@@ -35,29 +37,31 @@ export default function Login() {
     <div className="flex min-h-full items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
         <div className="mb-6 text-center">
-          <div className="text-3xl">🛍️</div>
-          <h1 className="mt-2 text-xl font-bold text-slate-800">Smart Boutique</h1>
-          <p className="text-sm text-slate-500">Un seul compte pour tout gérer</p>
+          <div className="text-3xl">🎉</div>
+          <h1 className="mt-2 text-xl font-bold text-slate-800">Créer un compte</h1>
+          <p className="text-sm text-slate-500">Un seul compte pour commander partout</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Alert type="error" onClose={() => setError('')}>{error}</Alert>
+          <Field label="Nom complet" required>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Prénom Nom" required autoFocus />
+          </Field>
           <Field label="Email" required>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="vous@email.com" required autoFocus autoComplete="email" />
+              placeholder="vous@email.com" required autoComplete="email" />
           </Field>
           <Field label="Mot de passe" required>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••" required autoComplete="current-password" />
+              placeholder="Au moins 6 caractères" required autoComplete="new-password" />
           </Field>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Connexion…' : 'Se connecter'}
+            {loading ? 'Création…' : 'Créer mon compte'}
           </Button>
         </form>
 
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <Link to="/register" className="font-semibold text-brand-600 hover:underline">Créer un compte</Link>
-          <Link to="/forgot-password" className="text-slate-500 hover:underline">Mot de passe oublié ?</Link>
+        <div className="mt-4 text-center text-sm">
+          Déjà inscrit ? <Link to="/login" className="font-semibold text-brand-600 hover:underline">Se connecter</Link>
         </div>
       </div>
     </div>
