@@ -20,6 +20,19 @@ export const profileApi = {
   changePassword: (payload) => client.put('/api/profile/password', payload),
 };
 
+// Self-service (Phase B) : créer SA boutique (identité, sans X-Shop-Id) -> devient OWNER.
+export const myShopApi = {
+  create: (name) => client.post('/api/shops', { name }),
+};
+
+// Notifications in-app de l'utilisateur (identité).
+export const notificationsApi = {
+  list: () => client.get('/api/me/notifications'),
+  unreadCount: () => client.get('/api/me/notifications/unread-count'),
+  markRead: (id) => client.post(`/api/me/notifications/${id}/read`),
+  markAllRead: () => client.post('/api/me/notifications/read-all'),
+};
+
 // ================================= MARKETPLACE (CLIENT, PUBLIC) =================================
 // Tenant résolu par le SLUG. AUCUN X-Shop-Id (routes /api/shops/**).
 export const marketplaceApi = {

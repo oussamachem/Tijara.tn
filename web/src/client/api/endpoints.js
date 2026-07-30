@@ -1,3 +1,10 @@
 // Shim : les pages CLIENT importent `shopsApi` (annuaire/catalogue/galerie/commande marketplace)
-// et `authApi`. On les mappe sur les endpoints unifiés (marketplace = tenant par slug, sans X-Shop-Id).
-export { authApi, marketplaceApi as shopsApi } from '../../api/endpoints.js';
+// et `authApi`, plus le self-service boutique, les notifications et le profil. On les mappe sur
+// les endpoints unifiés (marketplace = tenant par slug, sans X-Shop-Id).
+export {
+  authApi,
+  marketplaceApi as shopsApi,
+  myShopApi,
+  notificationsApi,
+  profileApi,
+} from '../../api/endpoints.js';

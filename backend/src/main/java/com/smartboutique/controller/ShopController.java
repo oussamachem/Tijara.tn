@@ -2,6 +2,7 @@ package com.smartboutique.controller;
 
 import com.smartboutique.dto.*;
 import com.smartboutique.security.UserPrincipal;
+import com.smartboutique.service.BoutiqueService;
 import com.smartboutique.service.OrderService;
 import com.smartboutique.service.ShopService;
 import jakarta.validation.Valid;
@@ -24,11 +25,23 @@ public class ShopController {
 
     private final ShopService shopService;
     private final OrderService orderService;
+    private final BoutiqueService boutiqueService;
 
     /** Annuaire public : boutiques ACTIVES correspondant a la recherche. */
     @GetMapping
     public List<ShopResponse> search(@RequestParam(required = false) String query) {
         return shopService.search(query);
+    }
+
+    /**
+     * Self-service (Phase B) : l'utilisateur AUTHENTIFIE cree SA boutique et en devient OWNER.
+     * Identite requise (pas de X-Shop-Id : on cree justement le tenant).
+     */
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public BoutiqueResponse createMyShop(@Valid @RequestBody CreateMyShopRequest request,
+                                         @AuthenticationPrincipal UserPrincipal principal) {
+        return boutiqueService.createForOwner(request.name(), principal.getId());
     }
 
     /** Catalogue public d'une boutique (declinaisons disponibles + galerie photos). */

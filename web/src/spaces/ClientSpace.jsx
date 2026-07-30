@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { CartProvider, useCart } from '../client/cart/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useShop } from '../context/ShopContext.jsx';
+import { notificationsApi } from '../api/endpoints.js';
 import Home from '../client/pages/Home.jsx';
 import Catalog from '../client/pages/Catalog.jsx';
 import Gallery from '../client/pages/Gallery.jsx';
@@ -10,15 +11,15 @@ import Cart from '../client/pages/Cart.jsx';
 import Checkout from '../client/pages/Checkout.jsx';
 import Orders from '../client/pages/Orders.jsx';
 import Account from '../client/pages/Account.jsx';
+import Notifications from '../client/pages/Notifications.jsx';
 
-function BottomNav() {
+function BottomNav({ unread }) {
   const { count } = useCart();
-  const { memberships, isPlatformAdmin } = useShop();
   const items = [
     { to: '/', icon: '🏬', label: 'Boutiques', end: true },
     { to: '/cart', icon: '🛒', label: 'Panier', badge: count },
     { to: '/orders', icon: '📦', label: 'Commandes' },
-    { to: '/account', icon: '👤', label: 'Compte' },
+    { to: '/account', icon: '👤', label: 'Compte', dot: unread > 0 },
   ];
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md items-stretch border-t border-slate-200 bg-white/95 backdrop-blur">
@@ -40,17 +41,11 @@ function BottomNav() {
               {it.badge}
             </span>
           )}
+          {it.dot && (
+            <span className="absolute right-1/2 top-1.5 translate-x-3 h-2 w-2 rounded-full bg-rose-500" />
+          )}
         </NavLink>
       ))}
-      {(memberships.length > 0 || isPlatformAdmin) && (
-        <NavLink
-          to="/account"
-          className="relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium text-slate-400"
-        >
-          <span className="text-xl leading-none">🔀</span>
-          Espaces
-        </NavLink>
-      )}
     </nav>
   );
 }
@@ -68,6 +63,16 @@ function RequireAuth({ children }) {
  * sans re-login (bouton « Espaces »).
  */
 export default function ClientSpace() {
+  const { isAuthenticated } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isAuthenticated) { setUnread(0); return; }
+    notificationsApi.unreadCount()
+      .then(({ data }) => setUnread(data.count || 0))
+      .catch(() => {});
+  }, [isAuthenticated]);
+
   return (
     <CartProvider>
       <div className="mx-auto flex min-h-full max-w-md flex-col bg-slate-50 shadow-sm">
@@ -81,10 +86,11 @@ export default function ClientSpace() {
             <Route path="checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
             <Route path="orders" element={<Orders />} />
             <Route path="account" element={<Account />} />
+            <Route path="notifications" element={<Notifications onSeen={() => setUnread(0)} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        <BottomNav />
+        <BottomNav unread={unread} />
       </div>
     </CartProvider>
   );

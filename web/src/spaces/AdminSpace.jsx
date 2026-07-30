@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
+import OwnerCaisse from './OwnerCaisse.jsx';
 import Dashboard from '../pages/Dashboard.jsx';
 import Products from '../pages/Products.jsx';
 import Categories from '../pages/Categories.jsx';
@@ -18,6 +19,8 @@ import DebtDetail from '../pages/DebtDetail.jsx';
 export default function AdminSpace() {
   return (
     <Routes>
+      {/* Caisse propriétaire : plein écran, hors sidebar admin. */}
+      <Route path="caisse/*" element={<OwnerCaisse />} />
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="produits" element={<Products />} />

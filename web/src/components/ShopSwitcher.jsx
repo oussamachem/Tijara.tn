@@ -63,6 +63,12 @@ export default function ShopSwitcher({ dark = false }) {
           ))}
           <Item active={mode === 'client'} onClick={() => go(switchToClient)} icon="👤" title="Espace client" sub="Parcourir & commander" />
           <button
+            onClick={() => { setOpen(false); navigate('/profile'); }}
+            className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <span className="text-lg">⚙️</span> Mon profil
+          </button>
+          <button
             onClick={() => { logout(); navigate('/login'); }}
             className="block w-full border-t border-slate-100 px-4 py-3 text-left text-sm font-medium text-rose-600 hover:bg-rose-50"
           >

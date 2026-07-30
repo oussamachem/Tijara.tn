@@ -76,6 +76,27 @@ public class BoutiqueService {
         return BoutiqueResponse.of(boutique);
     }
 
+    /**
+     * Self-service (Phase B) : l'utilisateur AUTHENTIFIE (identite existante) cree SA boutique et en
+     * devient OWNER. Aucun nouveau compte n'est cree (contrairement a {@link #create}). Le slug est
+     * derive du nom et rendu unique.
+     */
+    @Transactional
+    public BoutiqueResponse createForOwner(String name, Long ownerUserId) {
+        String slug = uniqueSlug(slugify(name));
+        Boutique boutique = boutiqueRepository.save(Boutique.builder()
+                .name(name.trim())
+                .slug(slug)
+                .status(BoutiqueStatus.ACTIVE)
+                .ownerUserId(ownerUserId)
+                .build());
+        shopMemberRepository.save(ShopMember.builder()
+                .shopId(boutique.getId()).userId(ownerUserId).role(ShopMemberRole.OWNER).build());
+        log.info("[SELF-SERVICE] Boutique '{}' (slug={}, id={}) creee par l'utilisateur {}",
+                boutique.getName(), slug, boutique.getId(), ownerUserId);
+        return BoutiqueResponse.of(boutique);
+    }
+
     @Transactional
     public BoutiqueResponse suspend(Long id) {
         return setStatus(id, BoutiqueStatus.SUSPENDED);

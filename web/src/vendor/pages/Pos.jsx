@@ -34,7 +34,7 @@ function Stepper({ value, onChange, max }) {
   );
 }
 
-export default function Pos() {
+export default function Pos({ reservationsPath = '/reservations' }) {
   const navigate = useNavigate();
   const { items, add, setQuantity, remove, clear, subtotal, count } = usePosCart();
 
@@ -162,7 +162,7 @@ export default function Pos() {
       const { data } = await reservationsApi.create(payload);
       clear(); setReserve(null);
       setNotice(`Réservation ${data.reference} créée · reste ${money(data.remaining)}.`);
-      navigate('/reservations');
+      navigate(reservationsPath);
     } catch (err) {
       setError(apiError(err));
     } finally {

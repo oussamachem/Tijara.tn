@@ -6,6 +6,7 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
+import Profile from './pages/Profile.jsx';
 
 // Code-split : chaque espace est un bundle séparé, chargé à la demande selon le rôle actif.
 // Un client ne télécharge jamais le code de l'admin, ni l'inverse.
@@ -49,6 +50,11 @@ function Workspace() {
   );
 }
 
+function ProfileRoute() {
+  const { user } = useAuth();
+  return user ? <Profile /> : <Navigate to="/login" replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -57,6 +63,9 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Profil (partagé, tous rôles) — accessible authentifié, hors espaces. */}
+      <Route path="/profile" element={<ProfileRoute />} />
 
       {/* Espace de travail role-aware (chaque espace gère son propre routage interne). */}
       <Route path="/*" element={<Workspace />} />
