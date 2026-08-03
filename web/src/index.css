@@ -70,6 +70,7 @@ body {
   text-align: center;
 }
 .qr-thermal-label img { image-rendering: pixelated; }   /* modules QR nets a l'agrandissement */
+.qr-t-shop { font-weight: 800; color: #0f172a; line-height: 1.05; letter-spacing: .2px; }
 .qr-t-ref { font-family: ui-monospace, monospace; font-weight: 700; line-height: 1.05; }
 .qr-t-attrs { color: #222; line-height: 1.05; }
 .qr-t-name { color: #555; line-height: 1.05; }

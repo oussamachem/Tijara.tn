@@ -4,6 +4,7 @@ import { productsApi, categoriesApi, colorsApi, sizesApi, variantsApi } from '..
 import { apiError } from '../api/client.js';
 import { Button, Field, Input, Textarea, Select, Card, Badge, Modal, Alert, Spinner, Pagination, ConfirmDialog } from '../components/ui.jsx';
 import BulkQrPrint from '../components/BulkQrPrint.jsx';
+import { useShop } from '../context/ShopContext.jsx';
 import { formatMoney } from '../utils/format.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -17,6 +18,8 @@ function escapeHtml(v) {
 const emptyHeader = { reference: '', name: '', description: '', categoryId: '', purchasePrice: '', salePrice: '' };
 
 export default function Products() {
+  const { activeShop } = useShop();
+  const shopName = activeShop?.name || 'Smart Boutique';
   const [filters, setFilters] = useState({ name: '', reference: '', categoryId: '' });
   const [page, setPage] = useState(0);
   const [pageData, setPageData] = useState({ content: [], totalPages: 0 });
@@ -195,6 +198,7 @@ export default function Products() {
     const sub = escapeHtml(`${qrVariant.colorName} · taille ${qrVariant.size}`);
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${ref}</title></head>
       <body style="text-align:center;font-family:sans-serif;padding:24px;margin:0">
+        <div style="font-weight:800;margin:0 0 6px">${escapeHtml(shopName)}</div>
         <h3 style="margin:0 0 2px">${ref}</h3><p style="margin:0 0 12px;color:#555">${sub}</p>
         <img src="${qrUrl}" style="width:260px" onload="window.focus();window.print();" />
       </body></html>`);

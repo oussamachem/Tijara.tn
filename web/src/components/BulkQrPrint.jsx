@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { variantsApi } from '../api/endpoints.js';
+import { useShop } from '../context/ShopContext.jsx';
 import { Button, Modal, Spinner, Alert, Field, Input, Select } from './ui.jsx';
 
-const SHOP_NAME = import.meta.env.VITE_SHOP_NAME ?? 'Smart Boutique';
+const SHOP_NAME_FALLBACK = import.meta.env.VITE_SHOP_NAME ?? 'Smart Boutique';
 const LARGE_THRESHOLD = 200;       // au-dela : avertissement (garde-fou, non bloquant)
 const SETTINGS_KEY = 'qrPrintSettings';
 
@@ -22,6 +23,9 @@ function loadSettings() {
  * Le QR encode toujours la reference variante (scan-vente inchange) ; 1 fetch QR par variante.
  */
 export default function BulkQrPrint({ product, onClose }) {
+  // Nom de la boutique ACTIVE (multi-tenant) -> imprimé en tête de chaque étiquette.
+  const { activeShop } = useShop();
+  const shopName = activeShop?.name || SHOP_NAME_FALLBACK;
   const [qrByVariant, setQrByVariant] = useState({}); // variantId -> blob URL
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,9 +71,10 @@ export default function BulkQrPrint({ product, onClose }) {
   for (const v of variants) for (let i = 0; i < v.quantity; i += 1) labels.push({ key: `${v.id}-${i}`, v });
 
   // -------- Mise en page THERMIQUE (adaptee a la taille de l'etiquette) --------
+  const showShop = h >= 20;           // nom boutique en tete (sauf etiquette minuscule)
   const showAttrs = h >= 25;          // couleur.taille seulement si la hauteur le permet
   const showName = h >= 35;           // nom produit seulement sur grande etiquette
-  const textLines = 1 + (showAttrs ? 1 : 0) + (showName ? 1 : 0);
+  const textLines = (showShop ? 1 : 0) + 1 + (showAttrs ? 1 : 0) + (showName ? 1 : 0);
   const qrMm = Math.max(8, Math.min(w - 4, h - (textLines * 4 + 3)));  // carre centre + quiet zone
   const refPt = Math.max(5, Math.min(10, w / 6));
 
@@ -77,6 +82,7 @@ export default function BulkQrPrint({ product, onClose }) {
     const attrs = [v.colorName, v.size].filter(Boolean).join(' · ');   // champs null omis
     return (
       <div className="qr-thermal-label" style={{ width: `${w}mm`, height: `${h}mm` }}>
+        {showShop && <div className="qr-t-shop" style={{ fontSize: `${refPt - 1}pt` }}>{shopName}</div>}
         {qrByVariant[v.id]
           ? <img src={qrByVariant[v.id]} alt="" style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }} />
           : <div style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }} />}
@@ -93,7 +99,7 @@ export default function BulkQrPrint({ product, onClose }) {
     const attrs = [v.colorName, v.size].filter(Boolean).join(' · ');
     return (
       <div className="qr-label">
-        <div className="qr-shop">{SHOP_NAME}</div>
+        <div className="qr-shop">{shopName}</div>
         {qrByVariant[v.id] ? <img src={qrByVariant[v.id]} alt="" className="qr-img" /> : <div className="qr-img" />}
         <div className="qr-ref">{v.reference}</div>
         <div className="qr-name">{product.name}</div>
