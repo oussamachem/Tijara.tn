@@ -38,10 +38,22 @@ export const notificationsApi = {
 export const marketplaceApi = {
   search: (query) => client.get('/api/shops', { params: query ? { query } : {} }),
   feed: (limit = 40) => client.get('/api/shops/feed', { params: { limit } }),
+  shop: (slug) => client.get(`/api/shops/${slug}`),
   catalog: (slug) => client.get(`/api/shops/${slug}/products`),
   gallery: (slug, page = 0, size = 24) => client.get(`/api/shops/${slug}/gallery`, { params: { page, size } }),
   order: (slug, items) => client.post(`/api/shops/${slug}/orders`, { items }),
   myOrders: (slug) => client.get(`/api/shops/${slug}/orders/mine`),
+};
+
+// ============================ MA BOUTIQUE (OWNER) — logo / réglages =============================
+export const shopSettingsApi = {
+  get: () => client.get('/api/admin/shop'),
+  uploadLogo: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return client.post('/api/admin/shop/logo', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  removeLogo: () => client.delete('/api/admin/shop/logo'),
 };
 
 // ============================= PLATEFORME (PLATFORM_ADMIN, super-admin) =========================

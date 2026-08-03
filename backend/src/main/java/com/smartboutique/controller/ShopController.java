@@ -39,6 +39,12 @@ public class ShopController {
         return shopService.feed(Math.min(Math.max(limit, 1), 100));
     }
 
+    /** Fiche publique d'une boutique (nom + logo) — vitrine / lien partage. */
+    @GetMapping("/{slug}")
+    public ShopResponse shop(@PathVariable String slug) {
+        return shopService.getBySlug(slug);
+    }
+
     /**
      * Self-service (Phase B) : l'utilisateur AUTHENTIFIE cree SA boutique et en devient OWNER.
      * Identite requise (pas de X-Shop-Id : on cree justement le tenant).

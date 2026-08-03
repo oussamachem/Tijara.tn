@@ -31,11 +31,11 @@ function Workspace() {
   const { user } = useAuth();
   const { ready, mode, role, activeShopId } = useShop();
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (!ready) return <FullScreen>Chargement de votre espace…</FullScreen>;
+  if (!ready) return <FullScreen>Chargement…</FullScreen>;
 
   let space;
-  if (mode === 'platform') space = <PlatformSpace />;
+  if (!user) space = <ClientSpace />;                                   // marketplace anonyme (lien partagé)
+  else if (mode === 'platform') space = <PlatformSpace />;
   else if (mode === 'shop' && role === 'OWNER') space = <AdminSpace />;
   else if (mode === 'shop' && role === 'VENDOR') space = <VendorSpace />;
   else space = <ClientSpace />;

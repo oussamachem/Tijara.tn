@@ -15,16 +15,14 @@ function readCtx() {
 }
 
 /**
- * Contexte de travail actif de l'utilisateur. Après login, charge GET /api/me/shops et résout un
- * contexte : plateforme (super-admin), boutique (OWNER/VENDOR), ou client (aucune boutique). Le
- * même compte bascule de contexte SANS re-login. Pose la boutique active (X-Shop-Id) via
- * setActiveShopId AVANT que l'espace ne monte (garde `resolved`).
+ * Contexte de travail actif. Après login, charge GET /api/me/shops PUIS résout le contexte (dans le
+ * MÊME effet, avec les memberships réellement chargés — évite toute course qui renverrait un OWNER
+ * côté client). Visiteur anonyme = marketplace public. Le même compte bascule sans re-login.
  */
 export function ShopProvider({ children }) {
   const { user, isPlatformAdmin } = useAuth();
   const [memberships, setMemberships] = useState([]);
-  const [ready, setReady] = useState(false);     // memberships chargés
-  const [resolved, setResolved] = useState(false); // contexte actif fixé (+ X-Shop-Id posé)
+  const [ready, setReady] = useState(false);
   const [ctx, setCtx] = useState(readCtx);
 
   const applyCtx = useCallback((next) => {
@@ -33,55 +31,48 @@ export function ShopProvider({ children }) {
     setActiveShopId(next.kind === 'shop' ? next.shopId : null);
   }, []);
 
-  // (re)charge les memberships quand l'identité change.
-  useEffect(() => {
-    let alive = true;
-    setReady(false);
-    setResolved(false);
-    if (!user) {
-      setMemberships([]);
-      setActiveShopId(null);
-      return;
-    }
-    meApi
-      .shops()
-      .then(({ data }) => alive && setMemberships(data))
-      .catch(() => alive && setMemberships([]))
-      .finally(() => alive && setReady(true));
-    return () => {
-      alive = false;
-    };
-  }, [user]);
-
-  // Résout le contexte actif une fois les memberships prêts (et le pose sur l'interceptor).
-  useEffect(() => {
-    if (!ready || !user) return;
-    const persisted = ctx;
-    const stillValid =
-      persisted &&
-      ((persisted.kind === 'client') ||
-        (persisted.kind === 'platform' && isPlatformAdmin) ||
-        (persisted.kind === 'shop' && memberships.some((m) => m.shopId === persisted.shopId)));
-
+  // Résout le contexte à partir des memberships fraîchement chargés (respecte un choix explicite
+  // encore valide, sinon défaut : boutique > plateforme > client).
+  const resolve = useCallback((members, admin) => {
+    const persisted = readCtx();
+    const stillValid = persisted && (
+      persisted.kind === 'client'
+      || (persisted.kind === 'platform' && admin)
+      || (persisted.kind === 'shop' && members.some((m) => m.shopId === persisted.shopId)));
     let next = persisted;
     if (!stillValid) {
-      if (memberships.length > 0) next = { kind: 'shop', shopId: memberships[0].shopId };
-      else if (isPlatformAdmin) next = { kind: 'platform' };
+      if (members.length > 0) next = { kind: 'shop', shopId: members[0].shopId };
+      else if (admin) next = { kind: 'platform' };
       else next = { kind: 'client' };
     }
     applyCtx(next);
-    setResolved(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, memberships, user, isPlatformAdmin]);
+  }, [applyCtx]);
+
+  useEffect(() => {
+    let alive = true;
+    setReady(false);
+    if (!user) {
+      // Visiteur anonyme : marketplace public (aucun X-Shop-Id). On NE touche PAS au contexte choisi.
+      setMemberships([]);
+      setActiveShopId(null);
+      setReady(true);
+      return undefined;
+    }
+    meApi.shops()
+      .then(({ data }) => { if (!alive) return; setMemberships(data); resolve(data, isPlatformAdmin); })
+      .catch(() => { if (!alive) return; setMemberships([]); resolve([], isPlatformAdmin); })
+      .finally(() => { if (alive) setReady(true); });
+    return () => { alive = false; };
+  }, [user, isPlatformAdmin, resolve]);
 
   const activeMembership =
     ctx?.kind === 'shop' ? memberships.find((m) => m.shopId === ctx.shopId) || null : null;
 
   const value = {
-    ready: ready && resolved,
+    ready,
     memberships,
-    mode: ctx?.kind || 'client',           // 'client' | 'shop' | 'platform'
-    role: activeMembership?.role || null,  // 'OWNER' | 'VENDOR' | null
+    mode: ctx?.kind || 'client',
+    role: activeMembership?.role || null,
     activeShop: activeMembership,
     activeShopId: ctx?.kind === 'shop' ? ctx.shopId : null,
     isPlatformAdmin,

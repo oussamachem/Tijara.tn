@@ -62,7 +62,7 @@ export default function Home() {
                 <li key={s.id}>
                   <Link to={`/s/${s.slug}`} state={{ shopName: s.name }}
                     className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-card active:scale-[.99]">
-                    <ShopAvatar name={s.name} />
+                    <ShopAvatar name={s.name} url={s.logoUrl} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-semibold text-slate-800">{s.name}</div>
                       <div className="truncate text-xs text-slate-400">/{s.slug}</div>
@@ -86,7 +86,7 @@ export default function Home() {
                 {shops.map((s) => (
                   <Link key={s.id} to={`/s/${s.slug}`} state={{ shopName: s.name }}
                     className="flex w-16 shrink-0 flex-col items-center gap-1 text-center">
-                    <ShopAvatar name={s.name} big />
+                    <ShopAvatar name={s.name} url={s.logoUrl} big />
                     <span className="w-full truncate text-[11px] font-medium text-slate-600">{s.name}</span>
                   </Link>
                 ))}
@@ -132,10 +132,11 @@ export default function Home() {
   );
 }
 
-function ShopAvatar({ name, big = false }) {
+function ShopAvatar({ name, url, big = false }) {
+  const size = big ? 'h-14 w-14' : 'h-12 w-12';
   return (
-    <div className={`flex shrink-0 items-center justify-center rounded-2xl bg-brand-100 font-black text-brand-700 ${big ? 'h-14 w-14 text-xl' : 'h-12 w-12 text-xl'}`}>
-      {(name || '?').charAt(0).toUpperCase()}
+    <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand-100 text-xl font-black text-brand-700 ${size}`}>
+      {url ? <img src={url} alt={name} loading="lazy" className="h-full w-full object-cover" /> : (name || '?').charAt(0).toUpperCase()}
     </div>
   );
 }

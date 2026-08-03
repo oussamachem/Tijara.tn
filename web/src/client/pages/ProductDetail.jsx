@@ -15,6 +15,7 @@ export default function ProductDetail() {
 
   const [product, setProduct] = useState(state?.product || null);
   const [shopName, setShopName] = useState(state?.shopName || slug);
+  const [shopLogo, setShopLogo] = useState(null);
   const [others, setOthers] = useState([]);
   const [loading, setLoading] = useState(!state?.product);
   const [error, setError] = useState('');
@@ -39,6 +40,11 @@ export default function ProductDetail() {
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, productId]);
+
+  // Fiche boutique (nom + logo) pour le bandeau cliquable.
+  useEffect(() => {
+    shopsApi.shop(slug).then(({ data }) => { setShopName(data.name); setShopLogo(data.logoUrl); }).catch(() => {});
+  }, [slug]);
 
   // Réinitialise la sélection quand on change de produit (navigation interne).
   useEffect(() => { setVariant(null); setQty(1); window.scrollTo(0, 0); }, [productId]);
@@ -73,8 +79,8 @@ export default function ProductDetail() {
         {/* Bandeau boutique cliquable -> vitrine */}
         <Link to={`/s/${slug}`} state={{ shopName }}
           className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-card active:scale-[.99]">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-100 text-lg font-black text-brand-700">
-            {(shopName || '?').charAt(0).toUpperCase()}
+          <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-brand-100 text-lg font-black text-brand-700">
+            {shopLogo ? <img src={shopLogo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate font-semibold text-slate-800">🏪 {shopName}</div>

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import OwnerCaisse from './OwnerCaisse.jsx';
 import Dashboard from '../pages/Dashboard.jsx';
+import ShopSettings from '../pages/ShopSettings.jsx';
 import Products from '../pages/Products.jsx';
 import Categories from '../pages/Categories.jsx';
 import Colors from '../pages/Colors.jsx';
@@ -23,6 +24,7 @@ export default function AdminSpace() {
       <Route path="caisse/*" element={<OwnerCaisse />} />
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="boutique" element={<ShopSettings />} />
         <Route path="produits" element={<Products />} />
         <Route path="categories" element={<Categories />} />
         <Route path="couleurs" element={<Colors />} />

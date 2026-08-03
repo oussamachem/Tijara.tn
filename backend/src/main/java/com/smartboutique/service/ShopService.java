@@ -87,7 +87,7 @@ public class ShopService {
             String img = p.getImages().stream()
                     .min(Comparator.comparingInt(ProductImage::getPosition))
                     .map(ProductImage::getUrl).orElse(null);
-            res.add(new FeedProductResponse(b.getSlug(), b.getName(), p.getId(), p.getName(), p.getSalePrice(), img));
+            res.add(new FeedProductResponse(b.getSlug(), b.getName(), b.getLogoUrl(), p.getId(), p.getName(), p.getSalePrice(), img));
         }
         return res;
     }
@@ -97,6 +97,14 @@ public class ShopService {
     public List<ShopResponse> search(String query) {
         return boutiqueRepository.searchActive(query != null ? query.trim() : "")
                 .stream().map(ShopResponse::of).toList();
+    }
+
+    /** Fiche publique d'UNE boutique ACTIVE par slug (nom + logo) — pour la vitrine / lien partage. */
+    @Transactional(readOnly = true)
+    public ShopResponse getBySlug(String slug) {
+        return ShopResponse.of(boutiqueRepository.findBySlug(slug)
+                .filter(b -> b.getStatus() == BoutiqueStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", slug)));
     }
 
     /**

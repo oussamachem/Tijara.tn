@@ -2,6 +2,7 @@ package com.smartboutique.service;
 
 import com.smartboutique.dto.BoutiqueResponse;
 import com.smartboutique.dto.CreateBoutiqueRequest;
+import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.BoutiqueStatus;
 import com.smartboutique.entity.ShopMember;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Normalizer;
 import java.util.List;
@@ -37,6 +39,38 @@ public class BoutiqueService {
     private final UserRepository userRepository;
     private final ShopMemberRepository shopMemberRepository;
     private final PasswordEncoder passwordEncoder;
+    private final FileStorageService fileStorageService;
+
+    /** Fiche de la boutique (pour son proprietaire) : nom, slug, logo. */
+    @Transactional(readOnly = true)
+    public ShopResponse getShop(Long id) {
+        return ShopResponse.of(boutiqueRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", id)));
+    }
+
+    /** Met a jour le logo de la boutique (remplace l'ancien fichier). */
+    @Transactional
+    public ShopResponse updateLogo(Long id, MultipartFile file) {
+        Boutique b = boutiqueRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", id));
+        String old = b.getLogoUrl();
+        b.setLogoUrl(fileStorageService.store(file));
+        boutiqueRepository.save(b);
+        if (old != null) fileStorageService.delete(old);
+        return ShopResponse.of(b);
+    }
+
+    /** Retire le logo de la boutique. */
+    @Transactional
+    public ShopResponse removeLogo(Long id) {
+        Boutique b = boutiqueRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", id));
+        String old = b.getLogoUrl();
+        b.setLogoUrl(null);
+        boutiqueRepository.save(b);
+        if (old != null) fileStorageService.delete(old);
+        return ShopResponse.of(b);
+    }
 
     @Transactional
     public BoutiqueResponse create(CreateBoutiqueRequest request) {

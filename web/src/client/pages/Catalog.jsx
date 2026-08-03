@@ -11,6 +11,7 @@ export default function Catalog() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const [shopName, setShopName] = useState(state?.shopName || slug);
+  const [logo, setLogo] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,22 +27,13 @@ export default function Catalog() {
   };
   useEffect(load, [slug]);
 
+  // Fiche boutique (nom + logo) via l'endpoint dédié.
   useEffect(() => {
-    if (!state?.shopName) {
-      shopsApi.search(slug).then(({ data }) => {
-        const exact = data.find((s) => s.slug === slug);
-        if (exact) setShopName(exact.name);
-      }).catch(() => {});
-    }
-    localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: state?.shopName || slug }));
+    shopsApi.shop(slug)
+      .then(({ data }) => { setShopName(data.name); setLogo(data.logoUrl); localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: data.name })); })
+      .catch(() => { localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: state?.shopName || slug })); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
-
-  useEffect(() => {
-    if (shopName && shopName !== slug) {
-      localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: shopName }));
-    }
-  }, [shopName, slug]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -63,8 +55,8 @@ export default function Catalog() {
           <span className="text-xl leading-none">‹</span>
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-2xl font-black backdrop-blur">
-            {(shopName || '?').charAt(0).toUpperCase()}
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/20 text-2xl font-black backdrop-blur">
+            {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-extrabold">{shopName}</h1>

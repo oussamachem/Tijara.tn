@@ -5,6 +5,7 @@ import ShopSwitcher from './ShopSwitcher.jsx';
 
 const navItems = [
   { to: '/', label: 'Tableau de bord', end: true, icon: '📊' },
+  { to: '/boutique', label: 'Ma boutique', icon: '🏪' },
   { to: '/caisse', label: 'Caisse (vendre)', icon: '🧾' },
   { to: '/produits', label: 'Produits', icon: '👕' },
   { to: '/categories', label: 'Catégories', icon: '🏷️' },

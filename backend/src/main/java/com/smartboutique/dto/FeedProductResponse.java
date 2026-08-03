@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 public record FeedProductResponse(
         String shopSlug,
         String shopName,
+        String shopLogoUrl,
         Long productId,
         String name,
         BigDecimal price,

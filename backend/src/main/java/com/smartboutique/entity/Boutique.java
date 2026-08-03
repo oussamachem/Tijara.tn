@@ -39,6 +39,10 @@ public class Boutique {
     @Column(name = "owner_user_id")
     private Long ownerUserId;
 
+    /** Logo / photo de profil (URL relative /uploads/...), affiche sur la vitrine et le marketplace. */
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
