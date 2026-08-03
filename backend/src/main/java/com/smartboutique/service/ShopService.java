@@ -1,5 +1,6 @@
 package com.smartboutique.service;
 
+import com.smartboutique.dto.FeedProductResponse;
 import com.smartboutique.dto.PageResponse;
 import com.smartboutique.dto.PublicProductResponse;
 import com.smartboutique.dto.PublicProductResponse.PublicImage;
@@ -16,6 +17,8 @@ import com.smartboutique.repository.ProductRepository;
 import com.smartboutique.repository.ProductVariantRepository;
 import com.smartboutique.tenancy.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,6 +44,53 @@ public class ShopService {
     private final BoutiqueRepository boutiqueRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductRepository productRepository;
+
+    // Auto-injection (proxy) : le fil marketplace appelle feedForShop() PAR boutique afin que chaque
+    // requete ouvre sa PROPRE transaction -> l'aspect pose le tenant (RLS) de cette boutique. Un
+    // appel direct (this.) court-circuiterait le proxy -> pas de transaction -> pas de tenant.
+    @Autowired
+    @Lazy
+    private ShopService self;
+
+    /**
+     * Fil marketplace (accueil client) : melange de produits PUBLICS de TOUTES les boutiques actives.
+     * Chaque boutique est lue dans sa propre transaction (RLS) via {@link #feedForShop}. Champs deja
+     * publics (nom, prix, image de couverture) -> pas de fuite cross-tenant.
+     */
+    public List<FeedProductResponse> feed(int limit) {
+        List<Boutique> shops = boutiqueRepository.searchActive("");
+        if (shops.isEmpty()) return List.of();
+        int perShop = Math.min(15, Math.max(3, (limit / shops.size()) + 3));
+        List<FeedProductResponse> out = new ArrayList<>();
+        for (Boutique b : shops) {
+            TenantContext.set(b.getId());
+            try {
+                out.addAll(self.feedForShop(b, perShop));
+            } catch (RuntimeException ignore) {
+                // Une boutique en erreur ne casse pas le fil.
+            } finally {
+                TenantContext.clear();
+            }
+        }
+        Collections.shuffle(out);   // effet "decouverte" (a defaut de ranking par ventes cross-boutique)
+        return out.stream().limit(limit).toList();
+    }
+
+    /** Produits disponibles d'UNE boutique (tenant courant deja pose par l'appelant) -> cartes de fil. */
+    @Transactional(readOnly = true)
+    public List<FeedProductResponse> feedForShop(Boutique b, int limit) {
+        Page<Product> products = productRepository.findAll(
+                PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt")));
+        List<FeedProductResponse> res = new ArrayList<>();
+        for (Product p : products) {
+            if (availableVariants(p).isEmpty()) continue;   // seulement le disponible
+            String img = p.getImages().stream()
+                    .min(Comparator.comparingInt(ProductImage::getPosition))
+                    .map(ProductImage::getUrl).orElse(null);
+            res.add(new FeedProductResponse(b.getSlug(), b.getName(), p.getId(), p.getName(), p.getSalePrice(), img));
+        }
+        return res;
+    }
 
     /** Annuaire public : boutiques ACTIVES correspondant a la recherche (boutiques = hors RLS). */
     @Transactional(readOnly = true)

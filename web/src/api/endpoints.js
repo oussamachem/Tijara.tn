@@ -37,6 +37,7 @@ export const notificationsApi = {
 // Tenant résolu par le SLUG. AUCUN X-Shop-Id (routes /api/shops/**).
 export const marketplaceApi = {
   search: (query) => client.get('/api/shops', { params: query ? { query } : {} }),
+  feed: (limit = 40) => client.get('/api/shops/feed', { params: { limit } }),
   catalog: (slug) => client.get(`/api/shops/${slug}/products`),
   gallery: (slug, page = 0, size = 24) => client.get(`/api/shops/${slug}/gallery`, { params: { page, size } }),
   order: (slug, items) => client.post(`/api/shops/${slug}/orders`, { items }),

@@ -33,6 +33,12 @@ public class ShopController {
         return shopService.search(query);
     }
 
+    /** Fil marketplace public (accueil) : produits melanges de toutes les boutiques actives. */
+    @GetMapping("/feed")
+    public List<FeedProductResponse> feed(@RequestParam(defaultValue = "40") int limit) {
+        return shopService.feed(Math.min(Math.max(limit, 1), 100));
+    }
+
     /**
      * Self-service (Phase B) : l'utilisateur AUTHENTIFIE cree SA boutique et en devient OWNER.
      * Identite requise (pas de X-Shop-Id : on cree justement le tenant).
