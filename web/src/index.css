@@ -50,6 +50,7 @@ body {
 .qr-ref { font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; word-break: break-all; }
 .qr-name { font-size: 10px; color: #334155; }
 .qr-attrs { font-size: 9px; color: #64748b; }
+.qr-price { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 1px; }
 
 /* Les portails d'impression sont masques a l'ecran ; reveles uniquement a l'impression. */
 .qr-print-portal { display: none; }
@@ -74,6 +75,7 @@ body {
 .qr-t-ref { font-family: ui-monospace, monospace; font-weight: 700; line-height: 1.05; }
 .qr-t-attrs { color: #222; line-height: 1.05; }
 .qr-t-name { color: #555; line-height: 1.05; }
+.qr-t-price { font-weight: 800; color: #0f172a; line-height: 1.1; }
 
 @media print {
   /* On masque toute l'application : seul le portail d'etiquettes est imprime. */

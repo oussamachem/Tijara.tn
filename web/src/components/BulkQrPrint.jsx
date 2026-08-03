@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { variantsApi } from '../api/endpoints.js';
 import { useShop } from '../context/ShopContext.jsx';
+import { formatMoney } from '../utils/format.js';
 import { Button, Modal, Spinner, Alert, Field, Input, Select } from './ui.jsx';
 
 const SHOP_NAME_FALLBACK = import.meta.env.VITE_SHOP_NAME ?? 'Smart Boutique';
@@ -66,15 +67,19 @@ export default function BulkQrPrint({ product, onClose }) {
 
   if (!product) return null;
 
+  // Prix produit (imprimé sur l'étiquette, en gras). La référence (couleur/taille) n'est PAS
+  // ré-imprimée en texte : elle est déjà encodée dans le QR + lisible via "couleur · taille".
+  const priceStr = product.salePrice != null ? formatMoney(product.salePrice) : '';
+
   // Liste des etiquettes : chaque variante repetee `quantity` fois (exemplaires identiques).
   const labels = [];
   for (const v of variants) for (let i = 0; i < v.quantity; i += 1) labels.push({ key: `${v.id}-${i}`, v });
 
   // -------- Mise en page THERMIQUE (adaptee a la taille de l'etiquette) --------
-  const showShop = h >= 20;           // nom boutique en tete (sauf etiquette minuscule)
-  const showAttrs = h >= 25;          // couleur.taille seulement si la hauteur le permet
-  const showName = h >= 35;           // nom produit seulement sur grande etiquette
-  const textLines = (showShop ? 1 : 0) + 1 + (showAttrs ? 1 : 0) + (showName ? 1 : 0);
+  const showShop = h >= 20;           // nom boutique en tete
+  const showName = h >= 28;           // nom produit
+  const showAttrs = h >= 24;          // couleur . taille
+  const textLines = (showShop ? 1 : 0) + (showName ? 1 : 0) + (showAttrs ? 1 : 0) + 1; // + prix (toujours)
   const qrMm = Math.max(8, Math.min(w - 4, h - (textLines * 4 + 3)));  // carre centre + quiet zone
   const refPt = Math.max(5, Math.min(10, w / 6));
 
@@ -86,9 +91,9 @@ export default function BulkQrPrint({ product, onClose }) {
         {qrByVariant[v.id]
           ? <img src={qrByVariant[v.id]} alt="" style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }} />
           : <div style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }} />}
-        <div className="qr-t-ref" style={{ fontSize: `${refPt}pt` }}>{v.reference}</div>
+        {showName && <div className="qr-t-name" style={{ fontSize: `${refPt - 1.5}pt` }}>{product.name}</div>}
         {showAttrs && attrs && <div className="qr-t-attrs" style={{ fontSize: `${refPt - 1.5}pt` }}>{attrs}</div>}
-        {showName && <div className="qr-t-name" style={{ fontSize: `${refPt - 2}pt` }}>{product.name}</div>}
+        {priceStr && <div className="qr-t-price" style={{ fontSize: `${refPt + 0.5}pt` }}>{priceStr}</div>}
       </div>
     );
   };
@@ -101,9 +106,9 @@ export default function BulkQrPrint({ product, onClose }) {
       <div className="qr-label">
         <div className="qr-shop">{shopName}</div>
         {qrByVariant[v.id] ? <img src={qrByVariant[v.id]} alt="" className="qr-img" /> : <div className="qr-img" />}
-        <div className="qr-ref">{v.reference}</div>
         <div className="qr-name">{product.name}</div>
         {attrs && <div className="qr-attrs">{attrs}</div>}
+        {priceStr && <div className="qr-price">{priceStr}</div>}
       </div>
     );
   };
