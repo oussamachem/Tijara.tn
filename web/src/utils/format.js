@@ -1,7 +1,7 @@
-// Devise par défaut : Dinar tunisien (modifiable ici).
+// Devise : Dinar tunisien — 3 décimales (millimes), ex. 49.000 DT.
 export function formatMoney(value) {
   const n = Number(value ?? 0);
-  return `${n.toFixed(2)} DT`;
+  return `${n.toFixed(3)} DT`;
 }
 
 export function formatDate(iso) {
