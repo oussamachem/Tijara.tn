@@ -44,6 +44,7 @@ public class ShopService {
     private final BoutiqueRepository boutiqueRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductRepository productRepository;
+    private final FollowService followService;
 
     // Auto-injection (proxy) : le fil marketplace appelle feedForShop() PAR boutique afin que chaque
     // requete ouvre sa PROPRE transaction -> l'aspect pose le tenant (RLS) de cette boutique. Un
@@ -99,12 +100,16 @@ public class ShopService {
                 .stream().map(ShopResponse::of).toList();
     }
 
-    /** Fiche publique d'UNE boutique ACTIVE par slug (nom + logo) — pour la vitrine / lien partage. */
+    /**
+     * Fiche publique d'UNE boutique ACTIVE par slug (nom + logo + following) — vitrine / lien partage.
+     * {@code userId} nullable (visiteur anonyme) -> following = false.
+     */
     @Transactional(readOnly = true)
-    public ShopResponse getBySlug(String slug) {
-        return ShopResponse.of(boutiqueRepository.findBySlug(slug)
-                .filter(b -> b.getStatus() == BoutiqueStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("Boutique", slug)));
+    public ShopResponse getBySlug(String slug, Long userId) {
+        Boutique b = boutiqueRepository.findBySlug(slug)
+                .filter(x -> x.getStatus() == BoutiqueStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", slug));
+        return ShopResponse.of(b, followService.isFollowing(userId, b.getId()));
     }
 
     /**

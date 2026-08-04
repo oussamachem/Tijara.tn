@@ -40,6 +40,10 @@ export const marketplaceApi = {
   feed: (limit = 40) => client.get('/api/shops/feed', { params: { limit } }),
   shop: (slug) => client.get(`/api/shops/${slug}`),
   catalog: (slug) => client.get(`/api/shops/${slug}/products`),
+  // Abonnements (« Suivre » une boutique) — client authentifié.
+  myFollows: () => client.get('/api/me/follows'),
+  follow: (slug) => client.post(`/api/shops/${slug}/follow`),
+  unfollow: (slug) => client.delete(`/api/shops/${slug}/follow`),
   gallery: (slug, page = 0, size = 24) => client.get(`/api/shops/${slug}/gallery`, { params: { page, size } }),
   order: (slug, items) => client.post(`/api/shops/${slug}/orders`, { items }),
   myOrders: (slug) => client.get(`/api/shops/${slug}/orders/mine`),

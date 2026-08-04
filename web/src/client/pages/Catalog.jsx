@@ -2,16 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { shopsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { Input, Spinner, ErrorNote, EmptyState } from '../components/ui.jsx';
 import { money } from '../lib/format';
 
-/** Vitrine d'une boutique : bandeau (nom + galerie), recherche/tri, grille de produits. */
+/** Vitrine d'une boutique : bandeau (logo + suivre + galerie), recherche/tri, grille de produits. */
 export default function Catalog() {
   const { slug } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [shopName, setShopName] = useState(state?.shopName || slug);
   const [logo, setLogo] = useState(null);
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,13 +31,25 @@ export default function Catalog() {
   };
   useEffect(load, [slug]);
 
-  // Fiche boutique (nom + logo) via l'endpoint dédié.
+  // Fiche boutique (nom + logo + following) via l'endpoint dédié.
   useEffect(() => {
     shopsApi.shop(slug)
-      .then(({ data }) => { setShopName(data.name); setLogo(data.logoUrl); localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: data.name })); })
+      .then(({ data }) => {
+        setShopName(data.name); setLogo(data.logoUrl); setFollowing(!!data.following);
+        localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: data.name }));
+      })
       .catch(() => { localStorage.setItem('sbc_lastShop', JSON.stringify({ slug, name: state?.shopName || slug })); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  const toggleFollow = async () => {
+    if (!isAuthenticated) { navigate('/login', { state: { from: `/s/${slug}` } }); return; }
+    setFollowBusy(true);
+    try {
+      if (following) { await shopsApi.unfollow(slug); setFollowing(false); }
+      else { await shopsApi.follow(slug); setFollowing(true); }
+    } catch { /* silencieux */ } finally { setFollowBusy(false); }
+  };
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -62,8 +78,15 @@ export default function Catalog() {
             <h1 className="truncate text-xl font-extrabold">{shopName}</h1>
             <p className="truncate text-sm text-brand-100">/{slug} · {products.length} produit(s)</p>
           </div>
+          <button onClick={toggleFollow} disabled={followBusy}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition ${
+              following ? 'bg-white/20 text-white ring-1 ring-white/60' : 'bg-white text-brand-700'}`}>
+            {following ? '✓ Suivi' : '＋ Suivre'}
+          </button>
+        </div>
+        <div className="mt-3">
           <Link to={`/s/${slug}/gallery`} state={{ shopName }}
-            className="shrink-0 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-brand-700">
+            className="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/30">
             📸 Galerie
           </Link>
         </div>

@@ -3,6 +3,7 @@ package com.smartboutique.controller;
 import com.smartboutique.dto.*;
 import com.smartboutique.security.UserPrincipal;
 import com.smartboutique.service.BoutiqueService;
+import com.smartboutique.service.FollowService;
 import com.smartboutique.service.OrderService;
 import com.smartboutique.service.ShopService;
 import jakarta.validation.Valid;
@@ -26,6 +27,7 @@ public class ShopController {
     private final ShopService shopService;
     private final OrderService orderService;
     private final BoutiqueService boutiqueService;
+    private final FollowService followService;
 
     /** Annuaire public : boutiques ACTIVES correspondant a la recherche. */
     @GetMapping
@@ -39,10 +41,25 @@ public class ShopController {
         return shopService.feed(Math.min(Math.max(limit, 1), 100));
     }
 
-    /** Fiche publique d'une boutique (nom + logo) — vitrine / lien partage. */
+    /** Fiche publique d'une boutique (nom + logo + following) — vitrine / lien partage. */
     @GetMapping("/{slug}")
-    public ShopResponse shop(@PathVariable String slug) {
-        return shopService.getBySlug(slug);
+    public ShopResponse shop(@PathVariable String slug,
+                             @AuthenticationPrincipal UserPrincipal principal) {
+        return shopService.getBySlug(slug, principal != null ? principal.getId() : null);
+    }
+
+    /** Suivre une boutique (client authentifié). */
+    @PostMapping("/{slug}/follow")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void follow(@PathVariable String slug, @AuthenticationPrincipal UserPrincipal principal) {
+        followService.follow(principal.getId(), slug);
+    }
+
+    /** Ne plus suivre une boutique. */
+    @DeleteMapping("/{slug}/follow")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unfollow(@PathVariable String slug, @AuthenticationPrincipal UserPrincipal principal) {
+        followService.unfollow(principal.getId(), slug);
     }
 
     /**

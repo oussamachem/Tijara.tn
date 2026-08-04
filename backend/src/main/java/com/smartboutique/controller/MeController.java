@@ -1,11 +1,13 @@
 package com.smartboutique.controller;
 
 import com.smartboutique.dto.MembershipResponse;
+import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.ShopMember;
 import com.smartboutique.repository.BoutiqueRepository;
 import com.smartboutique.repository.ShopMemberRepository;
 import com.smartboutique.security.UserPrincipal;
+import com.smartboutique.service.FollowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +35,13 @@ public class MeController {
 
     private final ShopMemberRepository shopMemberRepository;
     private final BoutiqueRepository boutiqueRepository;
+    private final FollowService followService;
+
+    /** Boutiques SUIVIES par l'utilisateur connecté (« Mes boutiques » de l'accueil). */
+    @GetMapping("/follows")
+    public List<ShopResponse> myFollows(@AuthenticationPrincipal UserPrincipal principal) {
+        return followService.myFollows(principal.getId());
+    }
 
     /** Boutiques dont l'utilisateur connecte est membre, avec son role contextuel (OWNER/VENDOR). */
     @GetMapping("/shops")

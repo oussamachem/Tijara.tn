@@ -1,22 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { shopsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { Input, Spinner, ErrorNote, EmptyState } from '../components/ui.jsx';
 import { money } from '../lib/format';
 
 export default function Home() {
+  const { isAuthenticated } = useAuth();
   const [query, setQuery] = useState('');
   const [shops, setShops] = useState([]);
   const [feed, setFeed] = useState([]);
+  const [follows, setFollows] = useState([]);
+  const [tab, setTab] = useState('foryou'); // 'foryou' | 'follows'
   const [loadingShops, setLoadingShops] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [error, setError] = useState('');
 
-  // Fil produits + rangée boutiques (une fois).
+  // Fil produits + boutiques suivies (une fois).
   useEffect(() => {
     shopsApi.feed(40).then(({ data }) => setFeed(data)).catch(() => {}).finally(() => setLoadingFeed(false));
-  }, []);
+    if (isAuthenticated) shopsApi.myFollows().then(({ data }) => setFollows(data)).catch(() => {});
+  }, [isAuthenticated]);
 
   // Recherche boutiques (debounce).
   useEffect(() => {
@@ -32,6 +37,10 @@ export default function Home() {
   }, [query]);
 
   const searching = query.trim().length > 0;
+  const hasFollows = isAuthenticated && follows.length > 0;
+  const followedSlugs = useMemo(() => new Set(follows.map((f) => f.slug)), [follows]);
+  const rowShops = hasFollows ? follows : shops;          // en tête : mes boutiques suivies, sinon toutes
+  const shownFeed = tab === 'follows' ? feed.filter((p) => followedSlugs.has(p.shopSlug)) : feed;
 
   return (
     <div>
@@ -39,22 +48,15 @@ export default function Home() {
         <h1 className="text-xl font-extrabold tracking-tight">Smart Boutique</h1>
         <p className="mt-0.5 text-sm text-brand-100">Découvrez et commandez en ligne</p>
         <div className="mt-3">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="🔍 Rechercher une boutique…"
-            className="border-transparent bg-white/95"
-          />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="🔍 Rechercher une boutique…" className="border-transparent bg-white/95" />
         </div>
       </header>
 
-      {/* --- MODE RECHERCHE : liste de boutiques --- */}
       {searching ? (
         <div className="p-4">
           <ErrorNote message={error} />
-          {loadingShops ? (
-            <Spinner label="Recherche…" />
-          ) : shops.length === 0 ? (
+          {loadingShops ? <Spinner label="Recherche…" /> : shops.length === 0 ? (
             <EmptyState icon="🔎" title="Aucune boutique" sub="Essayez un autre nom." />
           ) : (
             <ul className="space-y-3">
@@ -76,14 +78,14 @@ export default function Home() {
         </div>
       ) : (
         <>
-          {/* --- Rangée boutiques (défilement horizontal) --- */}
-          {shops.length > 0 && (
+          {/* --- Cercles boutiques : MES BOUTIQUES (suivies) sinon toutes (comme la rangée Shein) --- */}
+          {rowShops.length > 0 && (
             <div className="px-4 pt-4">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Boutiques</h2>
-              </div>
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+                {hasFollows ? '⭐ Mes boutiques' : 'Boutiques'}
+              </h2>
               <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
-                {shops.map((s) => (
+                {rowShops.map((s) => (
                   <Link key={s.id} to={`/s/${s.slug}`} state={{ shopName: s.name }}
                     className="flex w-16 shrink-0 flex-col items-center gap-1 text-center">
                     <ShopAvatar name={s.name} url={s.logoUrl} big />
@@ -91,19 +93,29 @@ export default function Home() {
                   </Link>
                 ))}
               </div>
+              {!hasFollows && isAuthenticated && (
+                <p className="mt-1 text-xs text-slate-400">Suivez vos boutiques préférées : ouvrez-en une et appuyez sur « Suivre ».</p>
+              )}
             </div>
           )}
 
-          {/* --- Fil produits (découverte) --- */}
+          {/* --- Chips Pour toi / Suivies (comme Shein For You / New In) --- */}
+          <div className="sticky top-[92px] z-10 mt-3 flex gap-2 border-b border-slate-100 bg-slate-50/95 px-4 py-2 backdrop-blur">
+            <Chip active={tab === 'foryou'} onClick={() => setTab('foryou')}>✨ Pour toi</Chip>
+            {hasFollows && <Chip active={tab === 'follows'} onClick={() => setTab('follows')}>⭐ Suivies</Chip>}
+          </div>
+
+          {/* --- Grille produits --- */}
           <div className="p-4">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Découvrir</h2>
             {loadingFeed ? (
               <Spinner label="Chargement des produits…" />
-            ) : feed.length === 0 ? (
-              <EmptyState icon="🛍️" title="Rien pour l'instant" sub="Les produits des boutiques apparaîtront ici." />
+            ) : shownFeed.length === 0 ? (
+              <EmptyState icon={tab === 'follows' ? '⭐' : '🛍️'}
+                title={tab === 'follows' ? 'Aucun produit suivi' : "Rien pour l'instant"}
+                sub={tab === 'follows' ? 'Vos boutiques suivies n’ont pas de produit disponible.' : 'Les produits des boutiques apparaîtront ici.'} />
             ) : (
               <ul className="grid grid-cols-2 gap-3">
-                {feed.map((p, i) => (
+                {shownFeed.map((p, i) => (
                   <li key={`${p.shopSlug}-${p.productId}-${i}`}>
                     <Link to={`/s/${p.shopSlug}/p/${p.productId}`} state={{ shopName: p.shopName }}
                       className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card active:scale-[.99]">
@@ -116,7 +128,10 @@ export default function Home() {
                       <div className="flex flex-1 flex-col p-2.5">
                         <div className="line-clamp-2 text-sm font-semibold text-slate-800">{p.name}</div>
                         <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
-                          <span className="truncate">🏪 {p.shopName}</span>
+                          {p.shopLogoUrl
+                            ? <img src={p.shopLogoUrl} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
+                            : <span>🏪</span>}
+                          <span className="truncate">{p.shopName}</span>
                         </div>
                         <div className="mt-auto pt-1.5 font-extrabold text-brand-700">{money(p.price)}</div>
                       </div>
@@ -129,6 +144,16 @@ export default function Home() {
         </>
       )}
     </div>
+  );
+}
+
+function Chip({ active, onClick, children }) {
+  return (
+    <button onClick={onClick}
+      className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold ${
+        active ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>
+      {children}
+    </button>
   );
 }
 

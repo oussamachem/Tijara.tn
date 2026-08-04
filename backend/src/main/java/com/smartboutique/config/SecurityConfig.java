@@ -64,6 +64,8 @@ public class SecurityConfig {
                         // Marketplace : passer commande = tout user AUTHENTIFIE (compte global, P1).
                         // (Declare AVANT le catalogue public ; le tenant vient du slug, pas de X-Shop-Id.)
                         .requestMatchers("/api/shops/*/orders", "/api/shops/*/orders/**").authenticated()
+                        // Suivre / ne plus suivre une boutique (client authentifie).
+                        .requestMatchers("/api/shops/*/follow").authenticated()
                         // Self-service (Phase B) : creer SA boutique = tout user AUTHENTIFIE (devient OWNER).
                         // Declare AVANT le GET public /api/shops/** (sinon POST tomberait sur anyRequest).
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/shops").authenticated()
