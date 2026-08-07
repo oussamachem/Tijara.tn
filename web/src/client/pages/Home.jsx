@@ -78,23 +78,29 @@ export default function Home() {
         </div>
       ) : (
         <>
-          {/* --- Cercles boutiques : MES BOUTIQUES (suivies) sinon toutes (comme la rangée Shein) --- */}
+          {/* --- Grille boutiques (2 rangées de tuiles, façon Shein) : MES BOUTIQUES suivies sinon toutes --- */}
           {rowShops.length > 0 && (
             <div className="px-4 pt-4">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-                {hasFollows ? '⭐ Mes boutiques' : 'Boutiques'}
+              <h2 className="mb-2.5 text-sm font-bold uppercase tracking-wide text-slate-500">
+                {hasFollows ? '⭐ Mes boutiques' : '🏬 Boutiques'}
               </h2>
-              <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
-                {rowShops.map((s) => (
-                  <Link key={s.id} to={`/s/${s.slug}`} state={{ shopName: s.name }}
-                    className="flex w-16 shrink-0 flex-col items-center gap-1 text-center">
-                    <ShopAvatar name={s.name} url={s.logoUrl} big />
-                    <span className="w-full truncate text-[11px] font-medium text-slate-600">{s.name}</span>
-                  </Link>
-                ))}
+              <div className="no-scrollbar -mx-1 overflow-x-auto px-1 pb-1">
+                <div className="grid grid-flow-col grid-rows-2 gap-x-4 gap-y-3" style={{ gridAutoColumns: '72px' }}>
+                  {rowShops.map((s) => (
+                    <Link key={s.id} to={`/s/${s.slug}`} state={{ shopName: s.name }}
+                      className="flex w-[72px] flex-col items-center gap-1 text-center active:scale-95">
+                      <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-3xl bg-brand-50 text-2xl font-black text-brand-700 ring-1 ring-slate-200">
+                        {s.logoUrl
+                          ? <img src={s.logoUrl} alt={s.name} loading="lazy" className="h-full w-full object-cover" />
+                          : (s.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <span className="w-full truncate text-[11px] font-medium text-slate-700">{s.name}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
               {!hasFollows && isAuthenticated && (
-                <p className="mt-1 text-xs text-slate-400">Suivez vos boutiques préférées : ouvrez-en une et appuyez sur « Suivre ».</p>
+                <p className="mt-1.5 text-xs text-slate-400">💡 Appuyez sur « Suivre » dans une boutique : elle apparaîtra ici.</p>
               )}
             </div>
           )}
