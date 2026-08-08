@@ -39,6 +39,7 @@ export const marketplaceApi = {
   search: (query) => client.get('/api/shops', { params: query ? { query } : {} }),
   feed: (limit = 40) => client.get('/api/shops/feed', { params: { limit } }),
   shop: (slug) => client.get(`/api/shops/${slug}`),
+  stats: (slug) => client.get(`/api/shops/${slug}/stats`),
   catalog: (slug) => client.get(`/api/shops/${slug}/products`),
   // Abonnements (« Suivre » une boutique) — client authentifié.
   myFollows: () => client.get('/api/me/follows'),

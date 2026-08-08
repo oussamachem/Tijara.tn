@@ -4,7 +4,7 @@ import { shopsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Input, Spinner, ErrorNote, EmptyState } from '../components/ui.jsx';
-import { money } from '../lib/format';
+import { money, compact } from '../lib/format';
 
 /** Vitrine d'une boutique : bandeau (logo + suivre + galerie), recherche/tri, grille de produits. */
 export default function Catalog() {
@@ -16,6 +16,7 @@ export default function Catalog() {
   const [logo, setLogo] = useState(null);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,12 +43,17 @@ export default function Catalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
+  // Stats publiques (profil façon TikTok) : abonnés, ventes, produits.
+  const loadStats = () => { shopsApi.stats(slug).then(({ data }) => setStats(data)).catch(() => {}); };
+  useEffect(loadStats, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleFollow = async () => {
     if (!isAuthenticated) { navigate('/login', { state: { from: `/s/${slug}` } }); return; }
     setFollowBusy(true);
     try {
       if (following) { await shopsApi.unfollow(slug); setFollowing(false); }
       else { await shopsApi.follow(slug); setFollowing(true); }
+      loadStats(); // rafraîchit le compteur d'abonnés
     } catch { /* silencieux */ } finally { setFollowBusy(false); }
   };
 
@@ -83,6 +89,12 @@ export default function Catalog() {
               following ? 'bg-white/20 text-white ring-1 ring-white/60' : 'bg-white text-brand-700'}`}>
             {following ? '✓ Suivi' : '＋ Suivre'}
           </button>
+        </div>
+        {/* Stats publiques façon TikTok : ventes réalisées, abonnés, produits */}
+        <div className="mt-4 flex items-center gap-8 text-white">
+          <Stat n={stats?.sales} label="Ventes" />
+          <Stat n={stats?.followers} label="Abonnés" />
+          <Stat n={stats?.products} label="Produits" />
         </div>
         <div className="mt-3">
           <Link to={`/s/${slug}/gallery`} state={{ shopName }}
@@ -134,6 +146,16 @@ export default function Catalog() {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Une stat de profil (grand nombre + libellé), façon TikTok. */
+function Stat({ n, label }) {
+  return (
+    <div className="text-center">
+      <div className="text-xl font-extrabold leading-none">{compact(n ?? 0)}</div>
+      <div className="mt-0.5 text-[11px] text-white/80">{label}</div>
     </div>
   );
 }

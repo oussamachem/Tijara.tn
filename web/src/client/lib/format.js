@@ -4,6 +4,14 @@ export function money(value) {
   return `${n.toFixed(3)} DT`;
 }
 
+// Nombre compact façon réseaux sociaux : 1234 -> 1.2k, 2000000 -> 2M.
+export function compact(value) {
+  const n = Number(value ?? 0);
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 ? 1 : 0)}k`;
+  return String(n);
+}
+
 export function formatDate(iso) {
   if (!iso) return '—';
   try {

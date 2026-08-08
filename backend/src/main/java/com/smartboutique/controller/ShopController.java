@@ -48,6 +48,12 @@ public class ShopController {
         return shopService.getBySlug(slug, principal != null ? principal.getId() : null);
     }
 
+    /** Statistiques publiques (profil boutique façon TikTok) : abonnés, ventes, produits. */
+    @GetMapping("/{slug}/stats")
+    public ShopStatsResponse stats(@PathVariable String slug) {
+        return shopService.stats(slug);
+    }
+
     /** Suivre une boutique (client authentifié). */
     @PostMapping("/{slug}/follow")
     @ResponseStatus(HttpStatus.NO_CONTENT)

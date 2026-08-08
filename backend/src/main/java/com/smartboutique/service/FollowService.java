@@ -51,6 +51,11 @@ public class FollowService {
         return userId != null && followRepository.existsByUserIdAndShopId(userId, shopId);
     }
 
+    /** Nombre d'abonnés d'une boutique (profil public). */
+    public long followersCount(Long shopId) {
+        return followRepository.countByShopId(shopId);
+    }
+
     /** Boutiques suivies par l'utilisateur (ACTIVES), triées par nom. */
     @Transactional(readOnly = true)
     public List<ShopResponse> myFollows(Long userId) {

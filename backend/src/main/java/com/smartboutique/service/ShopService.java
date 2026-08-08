@@ -6,6 +6,7 @@ import com.smartboutique.dto.PublicProductResponse;
 import com.smartboutique.dto.PublicProductResponse.PublicImage;
 import com.smartboutique.dto.PublicProductResponse.PublicVariantResponse;
 import com.smartboutique.dto.ShopResponse;
+import com.smartboutique.dto.ShopStatsResponse;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.BoutiqueStatus;
 import com.smartboutique.entity.Product;
@@ -15,6 +16,7 @@ import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.repository.BoutiqueRepository;
 import com.smartboutique.repository.ProductRepository;
 import com.smartboutique.repository.ProductVariantRepository;
+import com.smartboutique.repository.SaleRepository;
 import com.smartboutique.tenancy.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,7 @@ public class ShopService {
     private final BoutiqueRepository boutiqueRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductRepository productRepository;
+    private final SaleRepository saleRepository;
     private final FollowService followService;
 
     // Auto-injection (proxy) : le fil marketplace appelle feedForShop() PAR boutique afin que chaque
@@ -110,6 +113,29 @@ public class ShopService {
                 .filter(x -> x.getStatus() == BoutiqueStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("Boutique", slug));
         return ShopResponse.of(b, followService.isFollowing(userId, b.getId()));
+    }
+
+    /**
+     * Statistiques publiques d'une boutique (profil « façon TikTok ») : abonnés (global), ventes et
+     * produits (scopés au tenant via RLS -> comptés dans une transaction dédiée à cette boutique).
+     */
+    public ShopStatsResponse stats(String slug) {
+        Boutique b = boutiqueRepository.findBySlug(slug)
+                .filter(x -> x.getStatus() == BoutiqueStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", slug));
+        long followers = followService.followersCount(b.getId());
+        TenantContext.set(b.getId());
+        try {
+            return self.shopScopedStats(followers);   // ventes + produits sous RLS de cette boutique
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /** Comptes SCOPÉS au tenant courant (ventes + produits). Appelé via le proxy (RLS posée). */
+    @Transactional(readOnly = true)
+    public ShopStatsResponse shopScopedStats(long followers) {
+        return new ShopStatsResponse(followers, saleRepository.count(), productRepository.count());
     }
 
     /**
