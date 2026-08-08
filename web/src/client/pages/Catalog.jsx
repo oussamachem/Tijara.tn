@@ -3,26 +3,39 @@ import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { shopsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { Input, Spinner, ErrorNote, EmptyState } from '../components/ui.jsx';
+import { Spinner, ErrorNote, EmptyState } from '../components/ui.jsx';
 import { money, compact } from '../lib/format';
 
-/** Vitrine d'une boutique : bandeau (logo + suivre + galerie), recherche/tri, grille de produits. */
+const SORTS = [
+  ['default', 'Pertinence'],
+  ['name', 'Nom A–Z'],
+  ['price_asc', 'Prix croissant'],
+  ['price_desc', 'Prix décroissant'],
+];
+
+/**
+ * Vitrine publique d'une boutique — design premium (fashion e-commerce). Fonctionnalités inchangées :
+ * recherche, tri, suivre, partager, stats, navigation produit, states (chargement/vide/erreur).
+ */
 export default function Catalog() {
   const { slug } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+
   const [shopName, setShopName] = useState(state?.shopName || slug);
   const [logo, setLogo] = useState(null);
-  const [following, setFollowing] = useState(false);
-  const [followBusy, setFollowBusy] = useState(false);
-  const [stats, setStats] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState('name');
+  const [sort, setSort] = useState('default');
+  const [sortOpen, setSortOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const load = () => {
     setLoading(true); setError('');
@@ -33,7 +46,7 @@ export default function Catalog() {
   };
   useEffect(load, [slug]);
 
-  // Fiche boutique (nom + logo + following) via l'endpoint dédié.
+  // Fiche boutique (nom + logo + following).
   useEffect(() => {
     shopsApi.shop(slug)
       .then(({ data }) => {
@@ -44,7 +57,7 @@ export default function Catalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Stats publiques (profil façon TikTok) : abonnés, ventes, produits.
+  // Stats publiques (abonnés / ventes / produits).
   const loadStats = () => { shopsApi.stats(slug).then(({ data }) => setStats(data)).catch(() => {}); };
   useEffect(loadStats, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -54,108 +67,164 @@ export default function Catalog() {
     try {
       if (following) { await shopsApi.unfollow(slug); setFollowing(false); }
       else { await shopsApi.follow(slug); setFollowing(true); }
-      loadStats(); // rafraîchit le compteur d'abonnés
+      loadStats();
     } catch { /* silencieux */ } finally { setFollowBusy(false); }
   };
 
-  // Partager le lien de la boutique (share natif mobile, sinon copie presse-papiers).
   const shareShop = async () => {
     const link = `${window.location.origin}/s/${slug}`;
     if (navigator.share) {
       try { await navigator.share({ title: shopName, text: `Découvrez ${shopName} sur Smart Boutique`, url: link }); } catch { /* annulé */ }
     } else {
-      try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* presse-papiers indispo */ }
+      try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* indispo */ }
     }
   };
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    let list = products.filter(
-      (p) => !term || p.name.toLowerCase().includes(term) || (p.reference || '').toLowerCase().includes(term)
-    );
+    let list = products.filter((p) => !term || p.name.toLowerCase().includes(term) || (p.reference || '').toLowerCase().includes(term));
     if (sort === 'price_asc') list = [...list].sort((a, b) => a.price - b.price);
     else if (sort === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
-    else list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    else if (sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     return list;
   }, [products, q, sort]);
 
+  const sortLabel = SORTS.find(([k]) => k === sort)?.[1] || 'Pertinence';
+
   return (
-    <div>
-      {/* Bandeau vitrine — profil centré façon TikTok */}
-      <header className="safe-top relative bg-gradient-to-br from-brand-600 to-brand-800 px-4 pb-5 pt-4 text-white">
+    <div className="min-h-full bg-[#FAFAFA]">
+      {/* ---------- Cover + en-tête ---------- */}
+      <div className="relative">
+        <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-slate-200 to-slate-100">
+          {logo && <img src={logo} alt="" aria-hidden className="h-full w-full scale-125 object-cover opacity-50 blur-2xl" />}
+          <div className="absolute inset-0 bg-black/10" />
+        </div>
+
         <button onClick={() => navigate(-1)} aria-label="Retour"
-          className="absolute left-3 top-4 flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:bg-white/10">
-          <span className="text-xl leading-none">‹</span>
+          className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-md ring-1 ring-black/5 transition active:scale-95">
+          <span className="text-2xl leading-none">‹</span>
         </button>
 
-        {/* Avatar rond centré + nom + @handle */}
-        <div className="flex flex-col items-center pt-1.5">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/20 text-3xl font-black ring-2 ring-white/40 backdrop-blur">
-            {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
-          </div>
-          <h1 className="mt-2 max-w-full truncate px-2 text-center text-xl font-extrabold">{shopName}</h1>
-          <p className="text-center text-sm text-brand-100">@{slug}</p>
-        </div>
-
-        {/* Stats centrées avec séparateurs verticaux (façon TikTok) */}
-        <div className="mt-3 flex items-center justify-center">
-          <Stat n={stats?.followers} label="Abonnés" />
-          <Sep />
-          <Stat n={stats?.sales} label="Ventes" />
-          <Sep />
-          <Stat n={stats?.products} label="Produits" />
-        </div>
-
-        {/* Actions centrées : Suivre + Partager le lien de la boutique */}
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <button onClick={toggleFollow} disabled={followBusy}
-            className={`rounded-full px-7 py-2 text-sm font-bold transition ${
-              following ? 'bg-white/20 text-white ring-1 ring-white/60' : 'bg-white text-brand-700'}`}>
-            {following ? '✓ Suivi' : '＋ Suivre'}
+        <div className="absolute right-4 top-4">
+          <button onClick={() => setMenuOpen((o) => !o)} aria-label="Plus"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-md ring-1 ring-black/5 transition active:scale-95">
+            <span className="text-xl leading-none">⋮</span>
           </button>
-          <button onClick={shareShop}
-            className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white ring-1 ring-white/30">
-            🔗 Partager
-          </button>
-        </div>
-        {copied && <div className="mt-2 text-center text-xs font-semibold text-white/90">✓ Lien copié</div>}
-      </header>
-
-      {/* Recherche + tri */}
-      <div className="sticky top-0 z-10 space-y-2 border-b border-slate-100 bg-slate-50/95 px-4 py-3 backdrop-blur">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 Rechercher un article…" />
-        <div className="no-scrollbar flex gap-2 overflow-x-auto">
-          {[['name', 'A–Z'], ['price_asc', 'Prix ↑'], ['price_desc', 'Prix ↓']].map(([key, label]) => (
-            <button key={key} onClick={() => setSort(key)}
-              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${
-                sort === key ? 'bg-brand-600 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>
-              {label}
-            </button>
-          ))}
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                <button onClick={() => { setMenuOpen(false); shareShop(); }}
+                  className="block w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50">🔗 Copier le lien</button>
+                <Link to={`/s/${slug}/gallery`} state={{ shopName }} onClick={() => setMenuOpen(false)}
+                  className="block border-t border-slate-100 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">📸 Galerie photos</Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="p-4">
-        <ErrorNote message={error} onRetry={load} />
+      {/* ---------- Identité ---------- */}
+      <div className="px-4">
+        <div className="-mt-12 flex items-end gap-3">
+          <div className="h-24 w-24 shrink-0 rounded-full bg-white p-1 shadow-lg">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-3xl font-black text-slate-400">
+              {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
+            </div>
+          </div>
+          <div className="min-w-0 pb-1.5">
+            <h1 className="truncate text-2xl font-extrabold tracking-tight text-slate-900">{shopName}</h1>
+            <p className="truncate text-sm text-slate-500">@{slug}</p>
+          </div>
+        </div>
+
+        {/* Stats inline (pluriel adapté) */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+          <span><span className="font-bold text-slate-900">{compact(stats?.followers ?? 0)}</span> abonné{(stats?.followers ?? 0) > 1 ? 's' : ''}</span>
+          <span className="text-slate-300">•</span>
+          <span><span className="font-bold text-slate-900">{compact(stats?.sales ?? 0)}</span> vente{(stats?.sales ?? 0) > 1 ? 's' : ''}</span>
+          <span className="text-slate-300">•</span>
+          <span><span className="font-bold text-slate-900">{stats?.products ?? products.length}</span> produit{(stats?.products ?? products.length) > 1 ? 's' : ''}</span>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-4 flex gap-2.5">
+          <button onClick={toggleFollow} disabled={followBusy}
+            className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition active:scale-[.98] disabled:opacity-60 ${
+              following ? 'border border-slate-300 bg-white text-slate-900' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+            {following ? '✓ Suivi' : '+ Suivre'}
+          </button>
+          <button onClick={shareShop}
+            className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 active:scale-[.98]">
+            <ShareIcon /> Partager
+          </button>
+        </div>
+        {copied && <p className="mt-2 text-center text-xs font-medium text-slate-500">✓ Lien copié</p>}
+      </div>
+
+      {/* ---------- Recherche ---------- */}
+      <div className="px-4 pt-5">
+        <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
+          <SearchIcon />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher dans la boutique…"
+            className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-800 outline-none placeholder:text-slate-400" />
+          {q && <button onClick={() => setQ('')} className="text-slate-400 hover:text-slate-600" aria-label="Effacer">✕</button>}
+        </div>
+      </div>
+
+      {/* ---------- Filtre / tri ---------- */}
+      <div className="flex items-center justify-between px-4 pt-4">
+        <span className="rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white">Tous</span>
+        <div className="relative">
+          <button onClick={() => setSortOpen((o) => !o)}
+            className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-95">
+            <SortIcon /> {sortLabel}
+            <span className={`text-slate-400 transition ${sortOpen ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {sortOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
+              <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                {SORTS.map(([k, label]) => (
+                  <button key={k} onClick={() => { setSort(k); setSortOpen(false); }}
+                    className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                      sort === k ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+                    {label}{sort === k && <span className="text-slate-900">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ---------- Grille produits ---------- */}
+      <div className="px-4 pb-8 pt-4">
         {loading ? (
           <Spinner label="Chargement du catalogue…" />
+        ) : error ? (
+          <ErrorNote message={error} onRetry={load} />
         ) : filtered.length === 0 ? (
-          <EmptyState icon="👗" title="Aucun article" sub={q ? 'Aucun résultat.' : 'Cette boutique n’a pas encore de produit disponible.'} />
+          <EmptyState icon="🛍️" title="Aucun article"
+            sub={q ? 'Aucun résultat pour cette recherche.' : 'Cette boutique n’a pas encore de produit disponible.'} />
         ) : (
-          <ul className="grid grid-cols-2 gap-3">
+          <ul className="grid grid-cols-2 gap-3.5">
             {filtered.map((p) => (
               <li key={p.productId}>
                 <Link to={`/s/${slug}/p/${p.productId}`} state={{ product: p, shopName }}
-                  className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card active:scale-[.99]">
-                  {p.images && p.images.length > 0 ? (
-                    <img src={p.images[0].url} alt={p.name} loading="lazy" decoding="async" className="aspect-square w-full bg-slate-100 object-cover" />
-                  ) : (
-                    <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 text-4xl">🧥</div>
-                  )}
-                  <div className="flex flex-1 flex-col p-3">
-                    <div className="line-clamp-2 text-sm font-semibold text-slate-800">{p.name}</div>
-                    <div className="mt-1 text-xs text-slate-400">{p.variants.length} taille(s)/couleur(s)</div>
-                    <div className="mt-auto pt-2 font-extrabold text-brand-700">{money(p.price)}</div>
+                  className="group block overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:shadow-md active:scale-[.99]">
+                  <div className="aspect-[3/4] w-full overflow-hidden bg-slate-100">
+                    {p.images && p.images.length > 0 ? (
+                      <img src={p.images[0].url} alt={p.name} loading="lazy" decoding="async"
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 text-4xl">🧥</div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <div className="line-clamp-1 text-sm font-medium text-slate-900">{p.name}</div>
+                    <div className="mt-0.5 text-xs text-slate-400">{p.variants.length} taille(s)/couleur(s)</div>
+                    <div className="mt-1.5 text-[15px] font-extrabold text-slate-900">{money(p.price)}</div>
                   </div>
                 </Link>
               </li>
@@ -167,17 +236,26 @@ export default function Catalog() {
   );
 }
 
-/** Une stat de profil (grand nombre + libellé), façon TikTok. */
-function Stat({ n, label }) {
+/* --------------------------- petites icônes (inline SVG) --------------------------- */
+function SearchIcon() {
   return (
-    <div className="px-6 text-center">
-      <div className="text-2xl font-extrabold leading-none">{compact(n ?? 0)}</div>
-      <div className="mt-1 text-xs text-white/80">{label}</div>
-    </div>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
+      <circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" strokeLinecap="round" />
+    </svg>
   );
 }
-
-/** Séparateur vertical entre deux stats (façon TikTok). */
-function Sep() {
-  return <div className="h-8 w-px self-center bg-white/25" />;
+function ShareIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+      <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+    </svg>
+  );
+}
+function SortIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-slate-500">
+      <path d="M3 6h13M3 12h9M3 18h5M17 8l3-3 3 3M20 5v14" />
+    </svg>
+  );
 }
