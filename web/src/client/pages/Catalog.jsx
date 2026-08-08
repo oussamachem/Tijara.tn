@@ -70,35 +70,40 @@ export default function Catalog() {
 
   return (
     <div>
-      {/* Bandeau vitrine */}
+      {/* Bandeau vitrine — profil centré façon TikTok */}
       <header className="safe-top relative bg-gradient-to-br from-brand-600 to-brand-800 px-4 pb-5 pt-4 text-white">
         <button onClick={() => navigate(-1)} aria-label="Retour"
-          className="mb-2 -ml-1 flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:bg-white/10">
+          className="absolute left-3 top-4 flex h-8 w-8 items-center justify-center rounded-full text-white/90 hover:bg-white/10">
           <span className="text-xl leading-none">‹</span>
         </button>
-        <div className="flex items-center gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/20 text-2xl font-black backdrop-blur">
+
+        {/* Avatar rond centré + nom + @handle */}
+        <div className="flex flex-col items-center pt-1.5">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/20 text-3xl font-black ring-2 ring-white/40 backdrop-blur">
             {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-extrabold">{shopName}</h1>
-            <p className="truncate text-sm text-brand-100">/{slug} · {products.length} produit(s)</p>
-          </div>
+          <h1 className="mt-2 max-w-full truncate px-2 text-center text-xl font-extrabold">{shopName}</h1>
+          <p className="text-center text-sm text-brand-100">@{slug}</p>
+        </div>
+
+        {/* Stats centrées avec séparateurs verticaux (façon TikTok) */}
+        <div className="mt-3 flex items-center justify-center">
+          <Stat n={stats?.followers} label="Abonnés" />
+          <Sep />
+          <Stat n={stats?.sales} label="Ventes" />
+          <Sep />
+          <Stat n={stats?.products} label="Produits" />
+        </div>
+
+        {/* Actions centrées : Suivre + Galerie */}
+        <div className="mt-4 flex items-center justify-center gap-2">
           <button onClick={toggleFollow} disabled={followBusy}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition ${
+            className={`rounded-full px-7 py-2 text-sm font-bold transition ${
               following ? 'bg-white/20 text-white ring-1 ring-white/60' : 'bg-white text-brand-700'}`}>
             {following ? '✓ Suivi' : '＋ Suivre'}
           </button>
-        </div>
-        {/* Stats publiques façon TikTok : ventes réalisées, abonnés, produits */}
-        <div className="mt-4 flex items-center gap-8 text-white">
-          <Stat n={stats?.sales} label="Ventes" />
-          <Stat n={stats?.followers} label="Abonnés" />
-          <Stat n={stats?.products} label="Produits" />
-        </div>
-        <div className="mt-3">
           <Link to={`/s/${slug}/gallery`} state={{ shopName }}
-            className="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/30">
+            className="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30">
             📸 Galerie
           </Link>
         </div>
@@ -153,9 +158,14 @@ export default function Catalog() {
 /** Une stat de profil (grand nombre + libellé), façon TikTok. */
 function Stat({ n, label }) {
   return (
-    <div className="text-center">
-      <div className="text-xl font-extrabold leading-none">{compact(n ?? 0)}</div>
-      <div className="mt-0.5 text-[11px] text-white/80">{label}</div>
+    <div className="px-6 text-center">
+      <div className="text-2xl font-extrabold leading-none">{compact(n ?? 0)}</div>
+      <div className="mt-1 text-xs text-white/80">{label}</div>
     </div>
   );
+}
+
+/** Séparateur vertical entre deux stats (façon TikTok). */
+function Sep() {
+  return <div className="h-8 w-px self-center bg-white/25" />;
 }
