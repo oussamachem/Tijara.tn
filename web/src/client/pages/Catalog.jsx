@@ -95,9 +95,9 @@ export default function Catalog() {
     <div className="min-h-full bg-[#FAFAFA]">
       {/* ---------- Cover + en-tête ---------- */}
       <div className="relative">
-        <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-slate-200 to-slate-100">
-          {logo && <img src={logo} alt="" aria-hidden className="h-full w-full scale-125 object-cover opacity-50 blur-2xl" />}
-          <div className="absolute inset-0 bg-black/10" />
+        <div className="relative h-32 w-full overflow-hidden bg-gradient-to-br from-slate-800 to-slate-600">
+          {logo && <img src={logo} alt="" aria-hidden className="h-full w-full object-cover" />}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-black/10" />
         </div>
 
         <button onClick={() => navigate(-1)} aria-label="Retour"
@@ -126,17 +126,13 @@ export default function Catalog() {
 
       {/* ---------- Identité ---------- */}
       <div className="px-4">
-        <div className="-mt-12 flex items-end gap-3">
-          <div className="h-24 w-24 shrink-0 rounded-full bg-white p-1 shadow-lg">
-            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-3xl font-black text-slate-400">
-              {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
-            </div>
-          </div>
-          <div className="min-w-0 pb-1.5">
-            <h1 className="truncate text-2xl font-extrabold tracking-tight text-slate-900">{shopName}</h1>
-            <p className="truncate text-sm text-slate-500">@{slug}</p>
+        <div className="-mt-11 h-24 w-24 rounded-full bg-white p-1 shadow-lg">
+          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-3xl font-black text-slate-400">
+            {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
           </div>
         </div>
+        <h1 className="mt-2.5 text-2xl font-extrabold leading-tight tracking-tight text-slate-900">{shopName}</h1>
+        <p className="text-sm text-slate-500">@{slug}</p>
 
         {/* Stats inline (pluriel adapté) */}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
