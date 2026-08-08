@@ -127,12 +127,12 @@ export default function Catalog() {
       {/* ---------- Identité (centrée) ---------- */}
       <div className="px-4 text-center">
         {/* Logo pleinement visible (anneau blanc épais) — centré, plus de "demi-cercle" */}
-        <div className="mx-auto -mt-12 h-24 w-24 rounded-full bg-white p-1.5 shadow-lg ring-1 ring-black/5">
-          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-3xl font-black text-slate-400">
+        <div className="mx-auto -mt-11 h-[76px] w-[76px] rounded-full bg-white p-1.5 shadow-lg ring-1 ring-black/5">
+          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-2xl font-black text-slate-400">
             {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
           </div>
         </div>
-        <h1 className="mt-2.5 text-xl font-extrabold leading-tight tracking-tight text-slate-900">{shopName}</h1>
+        <h1 className="mt-1.5 text-xl font-extrabold leading-tight tracking-tight text-slate-900">{shopName}</h1>
         <p className="text-sm text-slate-500">@{slug}</p>
 
         {/* Stats publiques centrées : abonnés · produits (icônes décoratives ; ventes non mises en avant) */}
@@ -173,10 +173,10 @@ export default function Catalog() {
 
       {/* ---------- Filtre / tri ---------- */}
       <div className="flex items-center justify-between px-4 pt-4">
-        <span className="rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white">Tous</span>
+        <span className="inline-flex h-9 items-center rounded-full bg-slate-900 px-4 text-sm font-semibold text-white">Tous</span>
         <div className="relative">
           <button onClick={() => setSortOpen((o) => !o)}
-            className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-95">
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-95">
             <SortIcon /> <span className="text-slate-400">Trier&nbsp;par&nbsp;·</span> <span className="font-semibold text-slate-800">{sortLabel}</span>
             <span className={`text-slate-400 transition ${sortOpen ? 'rotate-180' : ''}`}>▾</span>
           </button>
@@ -198,7 +198,7 @@ export default function Catalog() {
       </div>
 
       {/* ---------- Grille produits ---------- */}
-      <div className="px-4 pb-6 pt-4">
+      <div className="px-4 pb-12 pt-4">
         {loading ? (
           <Spinner label="Chargement du catalogue…" />
         ) : error ? (
