@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { shopsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
@@ -19,9 +19,26 @@ export default function ProductDetail() {
   const [others, setOthers] = useState([]);
   const [loading, setLoading] = useState(!state?.product);
   const [error, setError] = useState('');
-  const [variant, setVariant] = useState(null);
+  const [selColor, setSelColor] = useState(null);
+  const [selSize, setSelSize] = useState(null);
   const [qty, setQty] = useState(1);
   const [toast, setToast] = useState('');
+
+  const variants = product?.variants || [];
+  // Couleurs distinctes (avec pastille hex) et tailles distinctes -> sélecteurs séparés (façon Shein).
+  const colors = useMemo(() => {
+    const m = new Map();
+    for (const v of variants) if (!m.has(v.color)) m.set(v.color, v.colorHex);
+    return [...m.entries()].map(([name, hex]) => ({ name, hex }));
+  }, [variants]);
+  const sizes = useMemo(() => [...new Set(variants.map((v) => v.size))], [variants]);
+  // Variante résolue = couleur + taille sélectionnées.
+  const variant = useMemo(
+    () => variants.find((v) => v.color === selColor && v.size === selSize) || null,
+    [variants, selColor, selSize],
+  );
+  const colorInStock = (c) => variants.some((v) => v.color === c && v.available > 0);
+  const sizeInStock = (s) => variants.some((v) => v.size === s && (!selColor || v.color === selColor) && v.available > 0);
 
   // Catalogue de la boutique : résout le produit (si accès direct) + alimente « Plus de cette boutique ».
   useEffect(() => {
@@ -47,7 +64,7 @@ export default function ProductDetail() {
   }, [slug]);
 
   // Réinitialise la sélection quand on change de produit (navigation interne).
-  useEffect(() => { setVariant(null); setQty(1); window.scrollTo(0, 0); }, [productId]);
+  useEffect(() => { setSelColor(null); setSelSize(null); setQty(1); window.scrollTo(0, 0); }, [productId]);
 
   const addToCart = () => {
     if (!variant || !product) return;
@@ -94,25 +111,56 @@ export default function ProductDetail() {
           <p className="mt-1 text-2xl font-extrabold text-brand-700">{money(product.price)}</p>
         </div>
 
-        <div>
-          <div className="mb-2 text-sm font-semibold text-slate-600">Choisir une déclinaison</div>
-          {product.variants.length === 0 ? (
-            <EmptyState icon="🚫" title="Indisponible" sub="Aucune déclinaison en stock." />
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {product.variants.map((v) => (
-                <button key={v.variantId} onClick={() => { setVariant(v); setQty(1); }}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium ${
-                    variant?.variantId === v.variantId
-                      ? 'border-brand-600 bg-brand-50 text-brand-700'
-                      : 'border-slate-200 bg-white text-slate-700'}`}>
-                  {v.color} · {v.size}
-                  <span className="ml-1 text-xs text-slate-400">({v.available})</span>
-                </button>
-              ))}
+        {variants.length === 0 ? (
+          <EmptyState icon="🚫" title="Indisponible" sub="Aucune déclinaison en stock." />
+        ) : (
+          <>
+            {/* Couleur (pastilles) */}
+            <div>
+              <div className="mb-2 text-sm font-semibold text-slate-600">
+                Couleur{selColor && <span className="font-normal text-slate-400"> · {selColor}</span>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {colors.map((c) => {
+                  const active = selColor === c.name;
+                  return (
+                    <button key={c.name} disabled={!colorInStock(c.name)}
+                      onClick={() => {
+                        setSelColor(c.name); setQty(1);
+                        if (selSize && !variants.some((v) => v.color === c.name && v.size === selSize && v.available > 0)) setSelSize(null);
+                      }}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium disabled:opacity-40 ${
+                        active ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-700'}`}>
+                      <span className="h-4 w-4 rounded-full border border-slate-300" style={{ backgroundColor: c.hex || '#fff' }} />
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Taille */}
+            <div>
+              <div className="mb-2 text-sm font-semibold text-slate-600">
+                Taille{selSize && <span className="font-normal text-slate-400"> · {selSize}</span>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((s) => {
+                  const active = selSize === s;
+                  return (
+                    <button key={s} disabled={!sizeInStock(s)}
+                      onClick={() => { setSelSize(s); setQty(1); }}
+                      className={`min-w-[52px] rounded-xl border px-3 py-2 text-center text-sm font-semibold disabled:opacity-40 disabled:line-through ${
+                        active ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-700'}`}>
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+              {variant && <p className="mt-2 text-xs text-slate-400">En stock : {variant.available}</p>}
+            </div>
+          </>
+        )}
 
         {variant && (
           <div className="flex items-center justify-between">
@@ -156,7 +204,8 @@ export default function ProductDetail() {
 
       <div className="safe-bottom sticky bottom-16 mt-2 border-t border-slate-100 bg-white p-4">
         <Button className="w-full" disabled={!variant} onClick={addToCart}>
-          {variant ? `Ajouter au panier · ${money(product.price * qty)}` : 'Choisir une déclinaison'}
+          {variant ? `Ajouter au panier · ${money(product.price * qty)}`
+            : !selColor ? 'Choisir une couleur' : 'Choisir une taille'}
         </Button>
       </div>
 

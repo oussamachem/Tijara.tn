@@ -12,8 +12,8 @@ public record PublicProductResponse(
         List<PublicVariantResponse> variants,
         List<PublicImage> images
 ) {
-    /** Une declinaison disponible (stock > 0) proposee au client. */
-    public record PublicVariantResponse(Long variantId, String color, String size, Integer available) {
+    /** Une declinaison disponible (stock > 0) proposee au client. {@code colorHex} = pastille couleur. */
+    public record PublicVariantResponse(Long variantId, String color, String colorHex, String size, Integer available) {
     }
 
     /** Une photo publique du produit (chemin relatif sous /uploads, ordre par position ; 0 = couverture). */

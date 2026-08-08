@@ -158,7 +158,7 @@ public class ShopService {
             if (v.getQuantity() == null || v.getQuantity() <= 0) continue;   // seulement le disponible
             ProductAcc acc = byProduct.computeIfAbsent(v.getProduct().getId(), id -> new ProductAcc(v));
             acc.variants.add(new PublicVariantResponse(
-                    v.getId(), v.getColor().getName(), v.getSize().getLabel(), v.getQuantity()));
+                    v.getId(), v.getColor().getName(), v.getColor().getHex(), v.getSize().getLabel(), v.getQuantity()));
         }
         return byProduct.values().stream()
                 .map(a -> toResponse(a.first.getProduct(), a.variants))
@@ -184,7 +184,7 @@ public class ShopService {
     private List<PublicVariantResponse> availableVariants(Product p) {
         return variantRepository.findByProductId(p.getId()).stream()
                 .filter(v -> v.getQuantity() != null && v.getQuantity() > 0)
-                .map(v -> new PublicVariantResponse(v.getId(), v.getColor().getName(), v.getSize().getLabel(), v.getQuantity()))
+                .map(v -> new PublicVariantResponse(v.getId(), v.getColor().getName(), v.getColor().getHex(), v.getSize().getLabel(), v.getQuantity()))
                 .toList();
     }
 
