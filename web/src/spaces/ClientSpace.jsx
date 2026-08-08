@@ -76,7 +76,8 @@ export default function ClientSpace() {
   return (
     <CartProvider>
       <div className="mx-auto flex min-h-full max-w-md flex-col bg-slate-50 shadow-sm">
-        <main className="flex-1 pb-20">
+        {/* Clearance = hauteur barre du bas + safe-area (sinon la nav recouvre le dernier produit). */}
+        <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
           <Routes>
             <Route index element={<Home />} />
             <Route path="s/:slug" element={<Catalog />} />

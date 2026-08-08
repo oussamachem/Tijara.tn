@@ -95,7 +95,7 @@ export default function Catalog() {
     <div className="min-h-full bg-[#FAFAFA]">
       {/* ---------- Cover + en-tête ---------- */}
       <div className="relative">
-        <div className="relative h-32 w-full overflow-hidden bg-gradient-to-br from-slate-800 to-slate-600">
+        <div className="relative h-28 w-full overflow-hidden bg-gradient-to-br from-slate-800 to-slate-600">
           {logo && <img src={logo} alt="" aria-hidden className="h-full w-full object-cover" />}
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-black/10" />
         </div>
@@ -126,25 +126,23 @@ export default function Catalog() {
 
       {/* ---------- Identité ---------- */}
       <div className="px-4">
-        <div className="-mt-11 h-24 w-24 rounded-full bg-white p-1 shadow-lg">
-          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-3xl font-black text-slate-400">
+        <div className="-mt-10 h-20 w-20 rounded-full bg-white p-1 shadow-lg ring-1 ring-black/5">
+          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-100 text-2xl font-black text-slate-400">
             {logo ? <img src={logo} alt={shopName} className="h-full w-full object-cover" /> : (shopName || '?').charAt(0).toUpperCase()}
           </div>
         </div>
-        <h1 className="mt-2.5 text-2xl font-extrabold leading-tight tracking-tight text-slate-900">{shopName}</h1>
+        <h1 className="mt-2 text-xl font-extrabold leading-tight tracking-tight text-slate-900">{shopName}</h1>
         <p className="text-sm text-slate-500">@{slug}</p>
 
-        {/* Stats inline (pluriel adapté) */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+        {/* Stats publiques : abonnés · produits (les ventes ne sont pas mises en avant sur la vitrine) */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-slate-500">
           <span><span className="font-bold text-slate-900">{compact(stats?.followers ?? 0)}</span> abonné{(stats?.followers ?? 0) > 1 ? 's' : ''}</span>
-          <span className="text-slate-300">•</span>
-          <span><span className="font-bold text-slate-900">{compact(stats?.sales ?? 0)}</span> vente{(stats?.sales ?? 0) > 1 ? 's' : ''}</span>
           <span className="text-slate-300">•</span>
           <span><span className="font-bold text-slate-900">{stats?.products ?? products.length}</span> produit{(stats?.products ?? products.length) > 1 ? 's' : ''}</span>
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex gap-2.5">
+        <div className="mt-3 flex gap-2.5">
           <button onClick={toggleFollow} disabled={followBusy}
             className={`flex-1 rounded-full py-2.5 text-sm font-semibold transition active:scale-[.98] disabled:opacity-60 ${
               following ? 'border border-slate-300 bg-white text-slate-900' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
@@ -159,8 +157,8 @@ export default function Catalog() {
       </div>
 
       {/* ---------- Recherche ---------- */}
-      <div className="px-4 pt-5">
-        <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
+      <div className="px-4 pt-4">
+        <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
           <SearchIcon />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher dans la boutique…"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-800 outline-none placeholder:text-slate-400" />
@@ -174,7 +172,7 @@ export default function Catalog() {
         <div className="relative">
           <button onClick={() => setSortOpen((o) => !o)}
             className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-95">
-            <SortIcon /> {sortLabel}
+            <SortIcon /> <span className="text-slate-400">Trier&nbsp;par&nbsp;·</span> <span className="font-semibold text-slate-800">{sortLabel}</span>
             <span className={`text-slate-400 transition ${sortOpen ? 'rotate-180' : ''}`}>▾</span>
           </button>
           {sortOpen && (
@@ -195,7 +193,7 @@ export default function Catalog() {
       </div>
 
       {/* ---------- Grille produits ---------- */}
-      <div className="px-4 pb-8 pt-4">
+      <div className="px-4 pb-6 pt-4">
         {loading ? (
           <Spinner label="Chargement du catalogue…" />
         ) : error ? (
