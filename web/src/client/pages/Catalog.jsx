@@ -17,6 +17,7 @@ export default function Catalog() {
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [stats, setStats] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,6 +58,16 @@ export default function Catalog() {
     } catch { /* silencieux */ } finally { setFollowBusy(false); }
   };
 
+  // Partager le lien de la boutique (share natif mobile, sinon copie presse-papiers).
+  const shareShop = async () => {
+    const link = `${window.location.origin}/s/${slug}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: shopName, text: `Découvrez ${shopName} sur Smart Boutique`, url: link }); } catch { /* annulé */ }
+    } else {
+      try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* presse-papiers indispo */ }
+    }
+  };
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     let list = products.filter(
@@ -95,18 +106,19 @@ export default function Catalog() {
           <Stat n={stats?.products} label="Produits" />
         </div>
 
-        {/* Actions centrées : Suivre + Galerie */}
+        {/* Actions centrées : Suivre + Partager le lien de la boutique */}
         <div className="mt-4 flex items-center justify-center gap-2">
           <button onClick={toggleFollow} disabled={followBusy}
             className={`rounded-full px-7 py-2 text-sm font-bold transition ${
               following ? 'bg-white/20 text-white ring-1 ring-white/60' : 'bg-white text-brand-700'}`}>
             {following ? '✓ Suivi' : '＋ Suivre'}
           </button>
-          <Link to={`/s/${slug}/gallery`} state={{ shopName }}
-            className="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30">
-            📸 Galerie
-          </Link>
+          <button onClick={shareShop}
+            className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white ring-1 ring-white/30">
+            🔗 Partager
+          </button>
         </div>
+        {copied && <div className="mt-2 text-center text-xs font-semibold text-white/90">✓ Lien copié</div>}
       </header>
 
       {/* Recherche + tri */}
