@@ -10,7 +10,7 @@ const TABS = [
   { to: '/caisse', icon: '🧾', label: 'Caisse', end: true },
   { to: '/caisse/reservations', icon: '📅', label: 'Réservations' },
   { to: '/caisse/retours', icon: '↩️', label: 'Retours' },
-  { to: '/caisse/ventes', icon: '📊', label: 'Mes ventes' },
+  { to: '/caisse/ventes', icon: '📊', label: 'Ventes' },
 ];
 
 function BottomTabs() {
@@ -57,7 +57,7 @@ export default function OwnerCaisse() {
             <Route index element={<Pos reservationsPath="/caisse/reservations" />} />
             <Route path="reservations" element={<Reservations />} />
             <Route path="retours" element={<Returns />} />
-            <Route path="ventes" element={<MySales />} />
+            <Route path="ventes" element={<MySales all />} />
             <Route path="*" element={<Navigate to="/caisse" replace />} />
           </Routes>
         </main>
