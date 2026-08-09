@@ -8,14 +8,14 @@ import { money } from '../lib/format';
 
 /**
  * Accueil marketplace (CLIENT) — design premium fashion. Flux : header clair (marque + recherche +
- * cloche notif) → Boutiques suivies → Découvrir les boutiques → ✨ Pour vous (produits).
+ * cloche notif) → Boutiques suivies → ✨ Pour vous (produits).
  * 100 % données réelles : recherche boutiques (serveur) + produits (filtre du fil), suivis, fil.
  * Aucune fonctionnalité inventée (pas de fausses catégories, pas de favori produit inexistant).
  */
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const discoverRef = useRef(null);
+  const searchRef = useRef(null);
 
   const [query, setQuery] = useState('');
   const [shops, setShops] = useState([]);
@@ -24,7 +24,6 @@ export default function Home() {
   const [tab, setTab] = useState('foryou');            // 'foryou' | 'follows'
   const [unread, setUnread] = useState(0);
   const [followsAll, setFollowsAll] = useState(false);  // « Voir tout » (suivies)
-  const [discoverAll, setDiscoverAll] = useState(false); // « Voir tout » (découvrir)
   const [loadingShops, setLoadingShops] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [error, setError] = useState('');
@@ -55,8 +54,6 @@ export default function Home() {
   const searching = term.length > 0;
   const hasFollows = isAuthenticated && follows.length > 0;
   const followedSlugs = useMemo(() => new Set(follows.map((f) => f.slug)), [follows]);
-  // « Découvrir » = boutiques actives NON déjà suivies (évite les doublons avec « Suivies »).
-  const discoverShops = useMemo(() => shops.filter((s) => !followedSlugs.has(s.slug)), [shops, followedSlugs]);
   // Recherche produits : filtre du fil déjà chargé (aucun endpoint public de recherche produit).
   const productMatches = useMemo(
     () => (searching ? feed.filter((p) => p.name.toLowerCase().includes(term) || (p.shopName || '').toLowerCase().includes(term)) : []),
@@ -64,8 +61,9 @@ export default function Home() {
   );
   const shownFeed = tab === 'follows' ? feed.filter((p) => followedSlugs.has(p.shopSlug)) : feed;
 
-  const goDiscover = () => {
-    if (discoverRef.current) discoverRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const focusSearch = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    searchRef.current?.focus();
   };
 
   return (
@@ -87,7 +85,7 @@ export default function Home() {
         {/* Recherche (action principale) */}
         <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
           <SearchIcon />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher une boutique, un produit…"
+          <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher une boutique, un produit…"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-800 outline-none placeholder:text-slate-400" />
           {query && <button onClick={() => setQuery('')} className="text-slate-400 hover:text-slate-600" aria-label="Effacer">✕</button>}
         </div>
@@ -141,18 +139,9 @@ export default function Home() {
             {hasFollows ? (
               <BoutiqueRow shops={follows} expanded={followsAll} />
             ) : (
-              <FollowEmptyState onDiscover={goDiscover} />
+              <FollowEmptyState onDiscover={focusSearch} />
             )}
           </section>
-
-          {/* --- Découvrir les boutiques (données réelles ; remplace « Catégories ») --- */}
-          {discoverShops.length > 0 && (
-            <section ref={discoverRef} className="px-4 pt-6">
-              <SectionHeader title="Découvrir les boutiques"
-                action={discoverShops.length > 4 ? <SeeAll expanded={discoverAll} onClick={() => setDiscoverAll((v) => !v)} /> : null} />
-              <BoutiqueRow shops={discoverShops} expanded={discoverAll} />
-            </section>
-          )}
 
           {/* --- ✨ Pour vous (produits) --- */}
           <section className="px-4 pb-10 pt-6">
@@ -238,7 +227,7 @@ function FollowEmptyState({ onDiscover }) {
       <p className="mx-auto mt-1 max-w-xs text-xs text-slate-500">Suivez vos boutiques préférées pour retrouver facilement leurs nouveautés.</p>
       <button onClick={onDiscover}
         className="mt-3 inline-flex rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-95">
-        Découvrir les boutiques
+        Rechercher une boutique
       </button>
     </div>
   );
