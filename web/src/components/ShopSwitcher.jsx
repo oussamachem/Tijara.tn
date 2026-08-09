@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../context/ShopContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -14,8 +14,16 @@ export default function ShopSwitcher({ dark = false }) {
   const { memberships, mode, activeShop, isPlatformAdmin, switchToShop, switchToClient, switchToPlatform } = useShop();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+
+  // Boutique dont on est PROPRIÉTAIRE (l'active si c'est le cas, sinon la 1re) -> accès direct caisse.
+  // Le VENDEUR, lui, atterrit déjà sur la caisse en sélectionnant sa boutique : pas d'entrée en double.
+  const ownerShop = (mode === 'shop' && activeShop?.role === 'OWNER')
+    ? activeShop
+    : memberships.find((m) => m.role === 'OWNER');
+  const onCaisse = location.pathname.startsWith('/caisse');
 
   useEffect(() => {
     const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
@@ -30,6 +38,13 @@ export default function ShopSwitcher({ dark = false }) {
   const sub = mode === 'shop' && activeShop ? ROLE_LABEL[activeShop.role] : null;
 
   const go = (fn) => { fn(); setOpen(false); navigate('/'); };
+
+  // Ouvre la caisse (POS) de la boutique du propriétaire : bascule dessus si besoin, puis /caisse.
+  const goCaisse = (shopId) => {
+    setOpen(false);
+    if (!(mode === 'shop' && activeShop?.shopId === shopId)) switchToShop(shopId);
+    navigate('/caisse');
+  };
 
   const btn = dark
     ? 'bg-slate-800 text-white hover:bg-slate-700 border-slate-700'
@@ -54,13 +69,22 @@ export default function ShopSwitcher({ dark = false }) {
           {memberships.map((m) => (
             <Item
               key={m.shopId}
-              active={mode === 'shop' && activeShop?.shopId === m.shopId}
+              active={mode === 'shop' && activeShop?.shopId === m.shopId && !onCaisse}
               onClick={() => go(() => switchToShop(m.shopId))}
               icon="🛍️"
               title={m.name}
               sub={`${ROLE_LABEL[m.role]}${m.status === 'SUSPENDED' ? ' · suspendue' : ''}`}
             />
           ))}
+          {ownerShop && (
+            <Item
+              active={mode === 'shop' && activeShop?.shopId === ownerShop.shopId && onCaisse}
+              onClick={() => goCaisse(ownerShop.shopId)}
+              icon="🧾"
+              title="Caisse"
+              sub="Vendre — point de vente"
+            />
+          )}
           <Item active={mode === 'client'} onClick={() => go(switchToClient)} icon="👤" title="Espace client" sub="Parcourir & commander" />
           <button
             onClick={() => { setOpen(false); navigate('/profile'); }}
