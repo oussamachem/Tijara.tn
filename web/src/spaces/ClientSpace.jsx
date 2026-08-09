@@ -16,37 +16,73 @@ import Notifications from '../client/pages/Notifications.jsx';
 function BottomNav({ unread }) {
   const { count } = useCart();
   const items = [
-    { to: '/', icon: '🏬', label: 'Boutiques', end: true },
-    { to: '/cart', icon: '🛒', label: 'Panier', badge: count },
-    { to: '/orders', icon: '📦', label: 'Commandes' },
-    { to: '/account', icon: '👤', label: 'Compte', dot: unread > 0 },
+    { to: '/', Icon: StoreIcon, label: 'Boutiques', end: true },
+    { to: '/cart', Icon: CartIcon, label: 'Panier', badge: count },
+    { to: '/orders', Icon: BoxIcon, label: 'Commandes' },
+    { to: '/account', Icon: UserIcon, label: 'Compte', dot: unread > 0 },
   ];
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md items-stretch border-t border-slate-200 bg-white/95 backdrop-blur">
-      {items.map((it) => (
+      {items.map(({ to, Icon, label, end, badge, dot }) => (
         <NavLink
-          key={it.to}
-          to={it.to}
-          end={it.end}
+          key={to}
+          to={to}
+          end={end}
           className={({ isActive }) =>
-            `relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium ${
-              isActive ? 'text-brand-600' : 'text-slate-400'
+            `relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] ${
+              isActive ? 'font-semibold text-slate-900' : 'font-medium text-slate-400'
             }`
           }
         >
-          <span className="text-xl leading-none">{it.icon}</span>
-          {it.label}
-          {it.badge > 0 && (
-            <span className="absolute right-1/2 top-1 translate-x-3 rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-              {it.badge}
-            </span>
-          )}
-          {it.dot && (
-            <span className="absolute right-1/2 top-1.5 translate-x-3 h-2 w-2 rounded-full bg-rose-500" />
+          {({ isActive }) => (
+            <>
+              <Icon active={isActive} />
+              {label}
+              {badge > 0 && (
+                <span className="absolute right-1/2 top-1 translate-x-3.5 rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {badge}
+                </span>
+              )}
+              {dot && (
+                <span className="absolute right-1/2 top-1.5 translate-x-3.5 h-2 w-2 rounded-full bg-rose-500" />
+              )}
+            </>
           )}
         </NavLink>
       ))}
     </nav>
+  );
+}
+
+/* Icônes bottom nav (line style ; remplies quand l'onglet est actif). */
+function StoreIcon({ active }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9.5 4.5 4h15L21 9.5" fill="none" /><path d="M4 9.5V20h16V9.5" fill={active ? 'currentColor' : 'none'} opacity={active ? 0.14 : 1} />
+      <path d="M4 9.5h16" fill="none" /><path d="M9 20v-5h6v5" fill="none" stroke={active ? '#fff' : 'currentColor'} />
+    </svg>
+  );
+}
+function CartIcon({ active }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" />
+      <path d="M2.5 3.5h2l2.2 11a1.6 1.6 0 0 0 1.6 1.3h8.2a1.6 1.6 0 0 0 1.6-1.3L21.5 7H6" fill="none" />
+    </svg>
+  );
+}
+function BoxIcon({ active }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" opacity={active ? 0.14 : 1} /><path d="m3 8 9 5 9-5" fill="none" /><path d="M12 13v8" fill="none" />
+    </svg>
+  );
+}
+function UserIcon({ active }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" opacity={active ? 0.16 : 1} /><path d="M4 21a8 8 0 0 1 16 0" fill="none" />
+    </svg>
   );
 }
 
