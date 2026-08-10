@@ -42,6 +42,30 @@ public class Order {
     @Column(name = "total_amount", precision = 12, scale = 2, nullable = false)
     private BigDecimal totalAmount;
 
+    // ---- Livraison (snapshot figé à la commande, depuis le profil du client) ----
+    @Column(name = "delivery_name", length = 150)
+    private String deliveryName;
+
+    @Column(name = "delivery_phone", length = 30)
+    private String deliveryPhone;
+
+    @Column(name = "delivery_address", length = 300)
+    private String deliveryAddress;
+
+    @Column(name = "delivery_governorat", length = 40)
+    private String deliveryGovernorat;
+
+    // ---- Suivi transporteur Goodex ----
+    /** Code de suivi (ean) renvoyé par Goodex à la création du colis. Null tant que non expédié. */
+    @Column(name = "carrier_ean", length = 60)
+    private String carrierEan;
+
+    @Column(name = "carrier_status", length = 60)
+    private String carrierStatus;
+
+    @Column(name = "carrier_status_at")
+    private LocalDateTime carrierStatusAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

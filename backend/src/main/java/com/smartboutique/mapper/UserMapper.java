@@ -15,6 +15,9 @@ public class UserMapper {
                 user.getEmail(),
                 user.isPlatformAdmin(),
                 user.isActive(),
+                user.getPhone(),
+                user.getAddress(),
+                user.getGovernorat(),
                 user.getCreatedAt()
         );
     }

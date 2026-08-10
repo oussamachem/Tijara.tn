@@ -2,6 +2,8 @@ package com.smartboutique.service;
 
 import com.smartboutique.dto.BoutiqueResponse;
 import com.smartboutique.dto.CreateBoutiqueRequest;
+import com.smartboutique.dto.GoodexSettingsRequest;
+import com.smartboutique.dto.GoodexSettingsResponse;
 import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.BoutiqueStatus;
@@ -70,6 +72,37 @@ public class BoutiqueService {
         boutiqueRepository.save(b);
         if (old != null) fileStorageService.delete(old);
         return ShopResponse.of(b);
+    }
+
+    // ------------------------------- Réglages Goodex (transporteur) -------------------------------
+
+    /** Réglages Goodex de la boutique (token jamais exposé -> booléen {@code configured}). */
+    @Transactional(readOnly = true)
+    public GoodexSettingsResponse getGoodexSettings(Long id) {
+        Boutique b = boutiqueRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", id));
+        return new GoodexSettingsResponse(b.getGoodexUserId(), b.getGoodexBaseUrl(),
+                b.getGoodexToken() != null && !b.getGoodexToken().isBlank());
+    }
+
+    /** Met à jour les identifiants Goodex. Token vide -> inchangé (on n'écrase pas un token existant). */
+    @Transactional
+    public GoodexSettingsResponse updateGoodexSettings(Long id, GoodexSettingsRequest req) {
+        Boutique b = boutiqueRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", id));
+        if (req.token() != null && !req.token().isBlank()) b.setGoodexToken(req.token().trim());
+        b.setGoodexUserId(blankToNull(req.userId()));
+        b.setGoodexBaseUrl(blankToNull(req.baseUrl()));
+        boutiqueRepository.save(b);
+        log.info("[Goodex] Réglages mis à jour pour la boutique {} (user_id={})", id, b.getGoodexUserId());
+        return new GoodexSettingsResponse(b.getGoodexUserId(), b.getGoodexBaseUrl(),
+                b.getGoodexToken() != null && !b.getGoodexToken().isBlank());
+    }
+
+    private static String blankToNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     @Transactional

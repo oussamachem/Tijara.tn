@@ -38,8 +38,18 @@ public class ClientService {
                 .password(passwordEncoder.encode(request.password()))
                 .active(true)
                 .platformAdmin(false)   // compte global : aucun role fixe, aucune boutique
+                .phone(trimToNull(request.phone()))
+                .address(trimToNull(request.address()))
+                .governorat(trimToNull(request.governorat()))
                 .build());
         log.info("Compte CLIENT cree : {}", email);
         return AuthResponse.of(jwtService.generateToken(client), userMapper.toResponse(client));
+    }
+
+    /** Vide -> null (évite de stocker des chaînes blanches pour les coordonnées optionnelles). */
+    private static String trimToNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 }

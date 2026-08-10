@@ -43,6 +43,19 @@ public class Boutique {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    // ---- Transporteur Goodex (Neo Parcel) : identifiants par boutique ----
+    /** Token permanent d'authentification Goodex. Jamais renvoye en clair dans les DTO. */
+    @Column(name = "goodex_token", length = 255)
+    private String goodexToken;
+
+    /** Identifiant expediteur (user_id) chez Goodex. */
+    @Column(name = "goodex_user_id", length = 60)
+    private String goodexUserId;
+
+    /** Base URL de l'API (defaut applique cote service si vide). */
+    @Column(name = "goodex_base_url", length = 200)
+    private String goodexBaseUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

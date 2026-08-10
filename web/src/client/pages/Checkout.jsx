@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { shopsApi } from '../api/endpoints';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { shopsApi, profileApi } from '../api/endpoints';
 import { apiError } from '../api/client';
 import { useCart } from '../cart/CartContext';
 import { useAuth } from '../auth/AuthContext';
@@ -14,6 +14,11 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [profile, setProfile] = useState(null);
+
+  // Coordonnées de livraison (profil) : affichées ici ; la commande en fait une copie.
+  useEffect(() => { profileApi.get().then(({ data }) => setProfile(data)).catch(() => {}); }, []);
+  const deliveryComplete = profile && profile.phone && profile.address && profile.governorat;
 
   if (count === 0) {
     return (<div><Header title="Commande" back /><EmptyState icon="🛒" title="Panier vide" /></div>);
@@ -40,9 +45,22 @@ export default function Checkout() {
       <Header title="Valider la commande" subtitle={cart.shopName} back />
       <div className="space-y-4 p-4">
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-card">
-          <div className="mb-2 text-sm font-semibold text-slate-600">Client</div>
-          <div className="text-sm text-slate-800">{user?.fullName}</div>
-          <div className="text-xs text-slate-400">{user?.email}</div>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-semibold text-slate-600">🚚 Livraison à domicile</div>
+            <Link to="/profile" className="text-xs font-semibold text-brand-600">Modifier</Link>
+          </div>
+          <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
+          {deliveryComplete ? (
+            <div className="mt-0.5 space-y-0.5 text-sm text-slate-600">
+              <div>{profile.phone}</div>
+              <div>{profile.address}</div>
+              <div>{profile.governorat}</div>
+            </div>
+          ) : (
+            <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+              ⚠️ Adresse incomplète. <Link to="/profile" className="font-semibold underline">Complétez votre profil</Link> (téléphone, adresse, gouvernorat) pour être livré.
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white shadow-card">
@@ -67,7 +85,7 @@ export default function Checkout() {
         </div>
 
         <div className="rounded-xl bg-brand-50 p-3 text-sm text-brand-800">
-          💡 Paiement à la récupération en boutique. Vous serez notifié quand la commande sera prête.
+          💡 Paiement à la livraison (COD). Vous serez notifié du suivi de votre commande.
         </div>
 
         <ErrorNote message={error} />

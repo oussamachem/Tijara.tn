@@ -65,11 +65,20 @@ public class OrderService {
         }
         order.setTotalAmount(total);
 
+        // Snapshot livraison : figé depuis le profil du client (l'admin l'utilise pour créer le colis).
+        User client = userRepository.findById(clientId).orElse(null);
+        if (client != null) {
+            order.setDeliveryName(client.getFullName());
+            order.setDeliveryPhone(client.getPhone());
+            order.setDeliveryAddress(client.getAddress());
+            order.setDeliveryGovernorat(client.getGovernorat());
+        }
+
         order = orderRepository.save(order);                     // boutique_id via DEFAULT = tenant du slug
         order.setReference("CMD-" + String.format("%06d", order.getId()));
         orderRepository.save(order);
 
-        String clientName = userRepository.findById(clientId).map(User::getFullName).orElse("Client");
+        String clientName = client != null ? client.getFullName() : "Client";
         historyRepository.save(OrderStatusHistory.builder()
                 .orderId(order.getId()).fromStatus(null).toStatus(OrderStatus.EN_ATTENTE)
                 .changedBy(clientName).build());
@@ -203,6 +212,8 @@ public class OrderService {
                 o.getCreatedAt(),
                 client != null ? client.getFullName() : null,
                 client != null ? client.getEmail() : null,
+                o.getDeliveryName(), o.getDeliveryPhone(), o.getDeliveryAddress(), o.getDeliveryGovernorat(),
+                o.getCarrierEan(), o.getCarrierStatus(), o.getCarrierStatusAt(),
                 itemsOf(o), history);
     }
 

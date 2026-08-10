@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiError } from '../api/client.js';
-import { Button, Field, Input, Alert } from '../components/ui.jsx';
+import { Button, Field, Input, Select, Alert } from '../components/ui.jsx';
+import { GOVERNORATS } from '../lib/goodex.js';
 
 /** Inscription CLIENT (compte global). Après création, l'espace client s'ouvre automatiquement. */
 export default function Register() {
@@ -12,6 +13,9 @@ export default function Register() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [governorat, setGovernorat] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +28,10 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await register(fullName.trim(), email.trim(), password);
+      await register({
+        fullName: fullName.trim(), email: email.trim(), password,
+        phone: phone.trim(), address: address.trim(), governorat: governorat || null,
+      });
       navigate(state?.from || '/', { replace: true });
     } catch (err) {
       setError(apiError(err, 'Inscription impossible'));
@@ -55,6 +62,26 @@ export default function Register() {
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
               placeholder="Au moins 6 caractères" required autoComplete="new-password" />
           </Field>
+
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Livraison (facultatif)</p>
+            <div className="space-y-3">
+              <Field label="Téléphone">
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Ex. 55 123 456" inputMode="tel" autoComplete="tel" />
+              </Field>
+              <Field label="Adresse">
+                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rue, ville, code postal" />
+              </Field>
+              <Field label="Gouvernorat">
+                <Select value={governorat} onChange={(e) => setGovernorat(e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {GOVERNORATS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </Select>
+              </Field>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Utilisé pour la livraison à domicile. Modifiable plus tard dans « Mon profil ».</p>
+          </div>
+
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Création…' : 'Créer mon compte'}
           </Button>

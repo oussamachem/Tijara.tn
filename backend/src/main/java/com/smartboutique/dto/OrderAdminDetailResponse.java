@@ -15,6 +15,14 @@ public record OrderAdminDetailResponse(
         LocalDateTime createdAt,
         String clientName,
         String clientEmail,
+        // Livraison (snapshot) + suivi transporteur Goodex
+        String deliveryName,
+        String deliveryPhone,
+        String deliveryAddress,
+        String deliveryGovernorat,
+        String carrierEan,
+        String carrierStatus,
+        LocalDateTime carrierStatusAt,
         List<OrderResponse.Item> items,
         List<StatusEvent> history
 ) {

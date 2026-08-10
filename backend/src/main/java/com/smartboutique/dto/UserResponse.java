@@ -12,6 +12,9 @@ public record UserResponse(
         String email,
         boolean platformAdmin,
         boolean active,
+        String phone,
+        String address,
+        String governorat,
         LocalDateTime createdAt
 ) {
 }

@@ -51,7 +51,17 @@ public class UserService {
         }
         user.setFullName(request.fullName());
         user.setEmail(request.email());
+        user.setPhone(trimToNull(request.phone()));
+        user.setAddress(trimToNull(request.address()));
+        user.setGovernorat(trimToNull(request.governorat()));
         return userMapper.toResponse(userRepository.save(user));
+    }
+
+    /** Vide -> null pour les coordonnées de livraison optionnelles. */
+    private static String trimToNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     @Transactional

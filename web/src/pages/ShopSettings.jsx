@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { shopSettingsApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
-import { Card, Button, Alert, Spinner } from '../components/ui.jsx';
+import { Card, Button, Alert, Spinner, Field, Input } from '../components/ui.jsx';
 
 const imgUrl = (u) => (u ? `${import.meta.env.VITE_API_URL || ''}${u}` : null);
 
@@ -14,6 +14,12 @@ export default function ShopSettings() {
   const [copied, setCopied] = useState(false);
   const fileRef = useRef(null);
 
+  // Réglages Goodex (transporteur)
+  const [goodex, setGoodex] = useState(null);
+  const [gForm, setGForm] = useState({ token: '', userId: '', baseUrl: '' });
+  const [gBusy, setGBusy] = useState(false);
+  const [gMsg, setGMsg] = useState('');
+
   const load = () => {
     shopSettingsApi.get()
       .then(({ data }) => setShop(data))
@@ -21,6 +27,25 @@ export default function ShopSettings() {
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
+
+  useEffect(() => {
+    shopSettingsApi.getGoodex()
+      .then(({ data }) => { setGoodex(data); setGForm((f) => ({ ...f, userId: data.userId || '', baseUrl: data.baseUrl || '' })); })
+      .catch(() => {});
+  }, []);
+
+  const saveGoodex = async (e) => {
+    e.preventDefault();
+    setGBusy(true); setGMsg(''); setError('');
+    try {
+      const { data } = await shopSettingsApi.updateGoodex({
+        token: gForm.token.trim(), userId: gForm.userId.trim(), baseUrl: gForm.baseUrl.trim(),
+      });
+      setGoodex(data);
+      setGForm((f) => ({ ...f, token: '' }));   // ne pas garder le token en clair dans le formulaire
+      setGMsg('Réglages Goodex enregistrés.');
+    } catch (err) { setError(apiError(err)); } finally { setGBusy(false); }
+  };
 
   const onPick = async (e) => {
     const file = e.target.files?.[0];
@@ -98,6 +123,34 @@ export default function ShopSettings() {
             Ouvrir ma vitrine ↗
           </a>
         </div>
+      </Card>
+
+      {/* Transporteur Goodex */}
+      <Card title="Livraison — Goodex (transporteur)">
+        <p className="mb-3 text-sm text-slate-500">
+          Renseignez vos identifiants <b>Goodex</b> (affichés en haut de votre espace{' '}
+          <a href="https://client.goodex.tn" target="_blank" rel="noreferrer" className="font-semibold text-brand-600 hover:underline">client.goodex.tn</a>).
+          Ils permettent de créer les colis et d'imprimer les bordereaux depuis « Commandes en ligne ».
+        </p>
+        <form onSubmit={saveGoodex} className="space-y-3">
+          <Alert type="success" onClose={() => setGMsg('')}>{gMsg}</Alert>
+          <Field label="user_id (expéditeur)">
+            <Input value={gForm.userId} onChange={(e) => setGForm((f) => ({ ...f, userId: e.target.value }))} placeholder="Ex. 990" inputMode="numeric" />
+          </Field>
+          <Field label={`Token${goodex?.configured ? ' (déjà configuré — laissez vide pour ne pas changer)' : ''}`}>
+            <Input type="password" value={gForm.token} onChange={(e) => setGForm((f) => ({ ...f, token: e.target.value }))}
+              placeholder={goodex?.configured ? '•••••••••• (inchangé)' : 'Collez votre token'} autoComplete="off" />
+          </Field>
+          <Field label="Base URL (optionnel)">
+            <Input value={gForm.baseUrl} onChange={(e) => setGForm((f) => ({ ...f, baseUrl: e.target.value }))} placeholder="https://transport.goodex.tn" />
+          </Field>
+          <div className="flex items-center gap-3">
+            <Button type="submit" disabled={gBusy}>{gBusy ? 'Enregistrement…' : 'Enregistrer'}</Button>
+            <span className={`text-sm font-medium ${goodex?.configured ? 'text-emerald-600' : 'text-slate-400'}`}>
+              {goodex?.configured ? '✓ Token configuré' : '○ Token non configuré'}
+            </span>
+          </div>
+        </form>
       </Card>
     </div>
   );

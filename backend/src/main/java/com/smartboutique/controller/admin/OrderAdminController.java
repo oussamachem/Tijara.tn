@@ -5,6 +5,7 @@ import com.smartboutique.dto.OrderAdminDetailResponse;
 import com.smartboutique.dto.OrderAdminResponse;
 import com.smartboutique.entity.OrderStatus;
 import com.smartboutique.security.UserPrincipal;
+import com.smartboutique.service.GoodexService;
 import com.smartboutique.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.List;
 public class OrderAdminController {
 
     private final OrderService orderService;
+    private final GoodexService goodexService;
 
     /** Liste des commandes de la boutique (filtre statut + recherche reference/client). */
     @GetMapping
@@ -42,5 +44,19 @@ public class OrderAdminController {
                                                  @Valid @RequestBody ChangeStatusRequest request,
                                                  @AuthenticationPrincipal UserPrincipal principal) {
         return orderService.changeStatus(id, request.status(), principal.getId());
+    }
+
+    /** Crée le colis Goodex (transporteur) pour la commande et renvoie le détail (avec le code de suivi). */
+    @PostMapping("/{id}/ship")
+    public OrderAdminDetailResponse ship(@PathVariable Long id) {
+        goodexService.createColis(id);
+        return orderService.getDetail(id);
+    }
+
+    /** Rafraîchit le statut Goodex du colis de la commande. */
+    @PostMapping("/{id}/tracking")
+    public OrderAdminDetailResponse tracking(@PathVariable Long id) {
+        goodexService.refreshStatus(id);
+        return orderService.getDetail(id);
     }
 }

@@ -3,7 +3,7 @@ import client from './client.js';
 // ===================================== IDENTITÉ / AUTH ==========================================
 export const authApi = {
   login: (email, password) => client.post('/api/auth/login', { email, password }),
-  register: (fullName, email, password) => client.post('/api/auth/register', { fullName, email, password }),
+  register: (payload) => client.post('/api/auth/register', payload),
   forgotPassword: (email) => client.post('/api/auth/forgot-password', { email }),
   resetPassword: (token, newPassword) => client.post('/api/auth/reset-password', { token, newPassword }),
 };
@@ -59,6 +59,9 @@ export const shopSettingsApi = {
     return client.post('/api/admin/shop/logo', form, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   removeLogo: () => client.delete('/api/admin/shop/logo'),
+  // Réglages transporteur Goodex (token/user_id/base URL).
+  getGoodex: () => client.get('/api/admin/shop/goodex'),
+  updateGoodex: (payload) => client.put('/api/admin/shop/goodex', payload),
 };
 
 // ============================= PLATEFORME (PLATFORM_ADMIN, super-admin) =========================
@@ -193,4 +196,7 @@ export const ordersApi = {
   list: (params) => client.get('/api/admin/orders', { params }),
   get: (id) => client.get(`/api/admin/orders/${id}`),
   changeStatus: (id, status) => client.post(`/api/admin/orders/${id}/status`, { status }),
+  // Transporteur Goodex : créer le colis / rafraîchir le statut.
+  ship: (id) => client.post(`/api/admin/orders/${id}/ship`),
+  tracking: (id) => client.post(`/api/admin/orders/${id}/tracking`),
 };

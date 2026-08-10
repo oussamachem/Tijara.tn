@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { profileApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Button, Field, Input, Alert, Spinner } from '../components/ui.jsx';
+import { Button, Field, Input, Select, Alert, Spinner } from '../components/ui.jsx';
+import { GOVERNORATS } from '../lib/goodex.js';
 
-/** Écran Profil partagé (tous rôles) : éditer nom/email + changer le mot de passe. Route /profile. */
+/** Écran Profil partagé (tous rôles) : éditer nom/email + livraison + changer le mot de passe. Route /profile. */
 export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [form, setForm] = useState({ fullName: '', email: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', address: '', governorat: '' });
   const [loading, setLoading] = useState(true);
   const [savingP, setSavingP] = useState(false);
   const [okP, setOkP] = useState('');
@@ -22,7 +23,10 @@ export default function Profile() {
 
   useEffect(() => {
     profileApi.get()
-      .then(({ data }) => setForm({ fullName: data.fullName || '', email: data.email || '' }))
+      .then(({ data }) => setForm({
+        fullName: data.fullName || '', email: data.email || '',
+        phone: data.phone || '', address: data.address || '', governorat: data.governorat || '',
+      }))
       .catch((e) => setErrP(apiError(e)))
       .finally(() => setLoading(false));
   }, []);
@@ -31,7 +35,10 @@ export default function Profile() {
     e.preventDefault();
     setSavingP(true); setOkP(''); setErrP('');
     try {
-      await profileApi.update({ fullName: form.fullName.trim(), email: form.email.trim() });
+      await profileApi.update({
+        fullName: form.fullName.trim(), email: form.email.trim(),
+        phone: form.phone.trim(), address: form.address.trim(), governorat: form.governorat || null,
+      });
       setOkP('Profil mis à jour.');
     } catch (err) { setErrP(apiError(err)); } finally { setSavingP(false); }
   };
@@ -65,6 +72,21 @@ export default function Profile() {
               <Alert type="success" onClose={() => setOkP('')}>{okP}</Alert>
               <Field label="Nom complet"><Input value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} required /></Field>
               <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required /></Field>
+
+              <div className="mt-1 border-t border-slate-100 pt-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Livraison à domicile</p>
+                <div className="space-y-3">
+                  <Field label="Téléphone"><Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Ex. 55 123 456" inputMode="tel" /></Field>
+                  <Field label="Adresse"><Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Rue, ville, code postal" /></Field>
+                  <Field label="Gouvernorat">
+                    <Select value={form.governorat} onChange={(e) => setForm((f) => ({ ...f, governorat: e.target.value }))}>
+                      <option value="">— Choisir —</option>
+                      {GOVERNORATS.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+
               <Button type="submit" className="w-full" disabled={savingP}>{savingP ? 'Enregistrement…' : 'Enregistrer'}</Button>
             </form>
 

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ordersApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
+import { useShop } from '../context/ShopContext.jsx';
 import { Badge, Spinner, Alert, Modal, Button, Input } from '../components/ui.jsx';
 import { formatMoney, formatDate } from '../utils/format.js';
+import { printBordereau } from '../lib/bordereau.js';
 
 const STATUS = {
   EN_ATTENTE: { label: 'En attente', color: 'amber' },
@@ -144,11 +146,14 @@ export default function Orders() {
 }
 
 function OrderDetailModal({ id, onClose, onChanged }) {
+  const { activeShop } = useShop();
+  const shopName = activeShop?.name;
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(null); // action en cours de confirmation
   const [busy, setBusy] = useState(false);
+  const [busyGoodex, setBusyGoodex] = useState(false);
 
   useEffect(() => {
     if (!id) { setDetail(null); return; }
@@ -156,6 +161,19 @@ function OrderDetailModal({ id, onClose, onChanged }) {
     setError('');
     ordersApi.get(id).then(({ data }) => setDetail(data)).catch((e) => setError(apiError(e))).finally(() => setLoading(false));
   }, [id]);
+
+  const createColis = async () => {
+    setBusyGoodex(true); setError('');
+    try { const { data } = await ordersApi.ship(id); setDetail(data); onChanged?.(); }
+    catch (e) { setError(apiError(e)); }
+    finally { setBusyGoodex(false); }
+  };
+  const refreshTracking = async () => {
+    setBusyGoodex(true); setError('');
+    try { const { data } = await ordersApi.tracking(id); setDetail(data); }
+    catch (e) { setError(apiError(e)); }
+    finally { setBusyGoodex(false); }
+  };
 
   const apply = async () => {
     setBusy(true);
@@ -188,10 +206,50 @@ function OrderDetailModal({ id, onClose, onChanged }) {
             <span className="text-sm text-slate-400">{formatDate(detail.createdAt)}</span>
           </div>
 
-          <div className="rounded-lg bg-slate-50 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Client</div>
-            <div className="mt-1 font-medium text-slate-800">{detail.clientName || '—'}</div>
-            <div className="text-sm text-slate-500">{detail.clientEmail}</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Client</div>
+              <div className="mt-1 font-medium text-slate-800">{detail.clientName || '—'}</div>
+              <div className="text-sm text-slate-500">{detail.clientEmail}</div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Livraison</div>
+              {(detail.deliveryPhone || detail.deliveryAddress || detail.deliveryGovernorat) ? (
+                <div className="mt-1 text-sm text-slate-700">
+                  <div className="font-medium text-slate-800">{detail.deliveryName || detail.clientName}</div>
+                  {detail.deliveryPhone && <div>{detail.deliveryPhone}</div>}
+                  {detail.deliveryAddress && <div>{detail.deliveryAddress}</div>}
+                  {detail.deliveryGovernorat && <div className="font-medium">{detail.deliveryGovernorat}</div>}
+                </div>
+              ) : (
+                <div className="mt-1 text-sm text-amber-700">⚠️ Adresse incomplète — le client doit la compléter dans son profil.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Transporteur Goodex */}
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Transporteur — Goodex</div>
+              {detail.carrierStatus && <Badge color="indigo">{detail.carrierStatus}</Badge>}
+            </div>
+            {detail.carrierEan ? (
+              <>
+                <div className="text-sm text-slate-600">Suivi : <span className="font-mono font-semibold text-slate-800">{detail.carrierEan}</span></div>
+                {detail.carrierStatusAt && <div className="text-xs text-slate-400">Statut au {formatDate(detail.carrierStatusAt)}</div>}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => printBordereau(shopName, detail)}>🖨️ Imprimer le bordereau</Button>
+                  <Button variant="secondary" onClick={refreshTracking} disabled={busyGoodex}>{busyGoodex ? '…' : '🔄 Actualiser le statut'}</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-500">Aucun colis créé. Créez-le pour obtenir un code de suivi et imprimer le bordereau.</p>
+                <div className="mt-3">
+                  <Button onClick={createColis} disabled={busyGoodex}>{busyGoodex ? 'Création…' : '📦 Créer le colis Goodex'}</Button>
+                </div>
+              </>
+            )}
           </div>
 
           <div>

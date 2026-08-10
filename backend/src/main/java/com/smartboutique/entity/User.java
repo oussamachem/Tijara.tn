@@ -46,6 +46,17 @@ public class User {
     @Builder.Default
     private boolean active = true;
 
+    /** Coordonnees de livraison du CLIENT (saisies a l'inscription / dans le profil). Optionnelles. */
+    @Column(length = 30)
+    private String phone;
+
+    @Column(length = 300)
+    private String address;
+
+    /** Gouvernorat de livraison (valeur de la liste Goodex). */
+    @Column(length = 40)
+    private String governorat;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

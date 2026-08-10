@@ -1,8 +1,11 @@
 package com.smartboutique.controller.admin;
 
+import com.smartboutique.dto.GoodexSettingsRequest;
+import com.smartboutique.dto.GoodexSettingsResponse;
 import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.service.BoutiqueService;
 import com.smartboutique.tenancy.TenantContext;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,5 +37,17 @@ public class ShopSettingsController {
     @DeleteMapping("/logo")
     public ShopResponse removeLogo() {
         return boutiqueService.removeLogo(TenantContext.get());
+    }
+
+    /** Réglages Goodex de ma boutique (le token n'est jamais renvoyé en clair). */
+    @GetMapping("/goodex")
+    public GoodexSettingsResponse getGoodex() {
+        return boutiqueService.getGoodexSettings(TenantContext.get());
+    }
+
+    /** Met à jour mes identifiants Goodex (token / user_id / base URL). */
+    @PutMapping("/goodex")
+    public GoodexSettingsResponse updateGoodex(@Valid @RequestBody GoodexSettingsRequest request) {
+        return boutiqueService.updateGoodexSettings(TenantContext.get(), request);
     }
 }
