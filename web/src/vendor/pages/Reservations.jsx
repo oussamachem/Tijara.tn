@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { reservationsApi } from '../../api/endpoints.js';
 import { apiError } from '../../api/client.js';
+import { useShop } from '../../context/ShopContext.jsx';
 import { Button, Input, ErrorNote, EmptyState, Spinner, Badge } from '../../client/components/ui.jsx';
 import { money, formatDate } from '../../client/lib/format.js';
+import { printReservationTicket } from '../lib/ticket.js';
 
 const STATUS_STYLE = {
   ACTIVE: 'bg-blue-100 text-blue-700',
@@ -13,13 +15,25 @@ const STATUS_STYLE = {
 const FILTERS = [['', 'Toutes'], ['ACTIVE', 'Actives'], ['CLOTUREE', 'Clôturées']];
 
 export default function Reservations() {
+  const { activeShop } = useShop();
   const [filter, setFilter] = useState('');
+  const [q, setQ] = useState('');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [detail, setDetail] = useState(null);
   const [pay, setPay] = useState({ amount: '', method: 'ESPECES' });
   const [busy, setBusy] = useState(false);
+
+  // Recherche client (nom / téléphone / référence) — filtre local sur la liste déjà chargée.
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return list;
+    return list.filter((r) =>
+      (r.customerName || '').toLowerCase().includes(t)
+      || (r.customerPhone || '').toLowerCase().includes(t)
+      || (r.reference || '').toLowerCase().includes(t));
+  }, [list, q]);
 
   const load = () => {
     setLoading(true); setError('');
@@ -62,13 +76,21 @@ export default function Reservations() {
           </button>
         ))}
       </div>
+      {!loading && list.length > 0 && (
+        <div className="mb-3">
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 Rechercher par nom ou téléphone…" />
+        </div>
+      )}
+
       <ErrorNote message={error} onRetry={load} />
 
       {loading ? <Spinner label="Chargement…" /> : list.length === 0 ? (
         <EmptyState icon="📅" title="Aucune réservation" sub="Les acomptes créés en caisse apparaissent ici." />
+      ) : shown.length === 0 ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-4 text-center text-sm text-slate-400">Aucune réservation pour « {q} ».</p>
       ) : (
         <ul className="space-y-2">
-          {list.map((r) => (
+          {shown.map((r) => (
             <li key={r.id}>
               <button onClick={() => open(r.id)} className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50">
                 <div className="flex items-center justify-between">
@@ -129,7 +151,11 @@ export default function Reservations() {
                 </div>
               </div>
             )}
-            <button onClick={() => setDetail(null)} className="mt-3 w-full rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">Fermer</button>
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => printReservationTicket(activeShop?.name, detail)}
+                className="flex-1 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white active:scale-[.99]">🖨️ Imprimer le bon</button>
+              <button onClick={() => setDetail(null)} className="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">Fermer</button>
+            </div>
           </div>
         </div>
       )}

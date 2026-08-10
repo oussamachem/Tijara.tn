@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { posApi, salesApi } from '../../api/endpoints.js';
 import { apiError } from '../../api/client.js';
+import { useShop } from '../../context/ShopContext.jsx';
 import { ErrorNote, EmptyState, Spinner, Button } from '../../client/components/ui.jsx';
 import { money, formatDate } from '../../client/lib/format.js';
+import { printSaleTicket } from '../lib/ticket.js';
 
 const PAY_LABEL = { ESPECES: 'Espèces', CARTE: 'Carte', MIXTE: 'Mixte' };
 
@@ -13,6 +15,7 @@ const PAY_LABEL = { ESPECES: 'Espèces', CARTE: 'Carte', MIXTE: 'Mixte' };
  *   pour superviser qui a vendu. Chaque ligne affiche le nom du vendeur (déjà fourni par l'API).
  */
 export default function MySales({ all = false }) {
+  const { activeShop } = useShop();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,7 +78,11 @@ export default function MySales({ all = false }) {
               {Number(detail.discount) > 0 && <div className="flex justify-between"><span className="text-slate-500">Remise</span><span>- {money(detail.discount)}</span></div>}
               <div className="flex justify-between"><span className="font-semibold text-slate-700">Total</span><span className="text-lg font-extrabold text-slate-800">{money(detail.totalAmount)}</span></div>
             </div>
-            <Button className="mt-4 w-full" onClick={() => setDetail(null)}>Fermer</Button>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => printSaleTicket(activeShop?.name, detail)}
+                className="flex-1 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white active:scale-[.99]">🖨️ Imprimer le ticket</button>
+              <Button className="flex-1" onClick={() => setDetail(null)}>Fermer</Button>
+            </div>
           </div>
         </div>
       )}
