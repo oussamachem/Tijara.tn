@@ -33,11 +33,23 @@ export const notificationsApi = {
   markAllRead: () => client.post('/api/me/notifications/read-all'),
 };
 
+// Favoris (wishlist) de l'utilisateur (identité, scopé au user courant).
+export const favoritesApi = {
+  ids: () => client.get('/api/me/favorites'),
+  products: () => client.get('/api/me/favorites/products'),
+  add: (productId) => client.post(`/api/me/favorites/${productId}`),
+  remove: (productId) => client.delete(`/api/me/favorites/${productId}`),
+};
+
 // ================================= MARKETPLACE (CLIENT, PUBLIC) =================================
 // Tenant résolu par le SLUG. AUCUN X-Shop-Id (routes /api/shops/**).
 export const marketplaceApi = {
   search: (query) => client.get('/api/shops', { params: query ? { query } : {} }),
   feed: (limit = 40) => client.get('/api/shops/feed', { params: { limit } }),
+  // Marketplace globale (accueil) : barre de catégories + fil cross-boutique par catégorie (public).
+  categories: () => client.get('/api/marketplace/categories'),
+  categoryProducts: (category, page = 0, size = 24) =>
+    client.get('/api/marketplace/products', { params: { category, page, size } }),
   shop: (slug) => client.get(`/api/shops/${slug}`),
   stats: (slug) => client.get(`/api/shops/${slug}/stats`),
   catalog: (slug) => client.get(`/api/shops/${slug}/products`),
@@ -59,6 +71,8 @@ export const shopSettingsApi = {
     return client.post('/api/admin/shop/logo', form, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   removeLogo: () => client.delete('/api/admin/shop/logo'),
+  // Réglages WhatsApp : { contactPhone, whatsappDefaultMessage } (numéro normalisé côté serveur).
+  updateContact: (payload) => client.put('/api/admin/shop/contact', payload),
   // Réglages transporteur Goodex (token/user_id/base URL).
   getGoodex: () => client.get('/api/admin/shop/goodex'),
   updateGoodex: (payload) => client.put('/api/admin/shop/goodex', payload),

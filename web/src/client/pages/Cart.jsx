@@ -1,7 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../cart/CartContext';
 import { useAuth } from '../auth/AuthContext';
+import { shopsApi } from '../api/endpoints';
 import Header from '../components/Header.jsx';
+import WhatsAppButton from '../components/WhatsAppButton.jsx';
+import { DEFAULT_WA_MESSAGE, productUrl } from '../lib/whatsapp';
 import { Button, EmptyState } from '../components/ui.jsx';
 import { money } from '../lib/format';
 
@@ -9,6 +13,22 @@ export default function Cart() {
   const { cart, setQty, remove, subtotal, count } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [contactPhone, setContactPhone] = useState(null);
+  const [defaultMessage, setDefaultMessage] = useState('');
+
+  // Numéro + message par défaut de la boutique du panier (pour le bouton « Contacter »).
+  useEffect(() => {
+    if (!cart.slug) { setContactPhone(null); setDefaultMessage(''); return; }
+    shopsApi.shop(cart.slug).then(({ data }) => { setContactPhone(data.contactPhone); setDefaultMessage(data.whatsappDefaultMessage || ''); }).catch(() => {});
+  }, [cart.slug]);
+
+  // Récap WhatsApp : message boutique + articles (avec LIEN produit) + total indicatif. Données
+  // uniquement visibles par le client (nom, déclinaison, qté, prix, total) — rien de sensible.
+  const waRecap = [
+    defaultMessage || DEFAULT_WA_MESSAGE,
+    ...cart.items.map((it) => `- ${it.name} (${it.color} · ${it.size}) × ${it.qty} — ${money(it.price * it.qty)}\n  ${productUrl(cart.slug, it.productId)}`),
+    `Total indicatif : ${money(subtotal)}`,
+  ].join('\n');
 
   if (count === 0) {
     return (
@@ -57,6 +77,8 @@ export default function Cart() {
         <Button className="w-full" onClick={() => navigate(isAuthenticated ? '/checkout' : '/login', { state: { from: '/checkout' } })}>
           {isAuthenticated ? 'Passer la commande' : 'Se connecter pour commander'}
         </Button>
+        {/* Contacter la boutique sur WhatsApp avec le récap (masqué si pas de numéro). */}
+        <div className="mt-2"><WhatsAppButton phone={contactPhone} message={waRecap} /></div>
         <p className="mt-2 text-center text-xs text-slate-400">Le total définitif est calculé par la boutique.</p>
       </div>
     </div>

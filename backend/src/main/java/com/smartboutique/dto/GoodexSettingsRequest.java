@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
  * par mégarde). {@code baseUrl} vide = valeur par défaut appliquée côté service.
  */
 public record GoodexSettingsRequest(
-        @Size(max = 255) String token,
+        @Size(max = 1000) String token,   // un JWT peut dépasser 255 caractères
         @Size(max = 60) String userId,
         @Size(max = 200) String baseUrl
 ) {

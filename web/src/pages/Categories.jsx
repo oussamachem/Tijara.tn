@@ -91,7 +91,8 @@ export default function Categories() {
         ) : items.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-400">Aucune catégorie.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="pb-2">Nom</th>
@@ -114,6 +115,7 @@ export default function Categories() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

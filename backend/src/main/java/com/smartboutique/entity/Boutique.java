@@ -43,9 +43,18 @@ public class Boutique {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    /** Numero de contact WhatsApp (format international, ex. +21612345678). Public, non sensible :
+     *  sert a construire un lien wa.me cote client. Null = pas de contact WhatsApp. */
+    @Column(name = "contact_phone", length = 20)
+    private String contactPhone;
+
+    /** Message WhatsApp par defaut (prefixe du message pre-rempli). Public. Null -> fallback applicatif. */
+    @Column(name = "whatsapp_default_message", length = 500)
+    private String whatsappDefaultMessage;
+
     // ---- Transporteur Goodex (Neo Parcel) : identifiants par boutique ----
     /** Token permanent d'authentification Goodex. Jamais renvoye en clair dans les DTO. */
-    @Column(name = "goodex_token", length = 255)
+    @Column(name = "goodex_token", length = 1000)
     private String goodexToken;
 
     /** Identifiant expediteur (user_id) chez Goodex. */

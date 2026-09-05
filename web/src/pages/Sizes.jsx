@@ -103,7 +103,8 @@ export default function Sizes() {
             Aucune taille. Créez-en une pour pouvoir la sélectionner sur un produit.
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="pb-2">Libellé</th>
@@ -126,6 +127,7 @@ export default function Sizes() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 
