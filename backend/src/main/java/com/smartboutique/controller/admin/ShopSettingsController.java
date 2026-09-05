@@ -2,6 +2,7 @@ package com.smartboutique.controller.admin;
 
 import com.smartboutique.dto.GoodexSettingsRequest;
 import com.smartboutique.dto.GoodexSettingsResponse;
+import com.smartboutique.dto.ShopContactRequest;
 import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.service.BoutiqueService;
 import com.smartboutique.tenancy.TenantContext;
@@ -21,10 +22,16 @@ public class ShopSettingsController {
 
     private final BoutiqueService boutiqueService;
 
-    /** Fiche de ma boutique (nom, slug, logo courant). */
+    /** Fiche de ma boutique (nom, slug, logo courant, numéro WhatsApp). */
     @GetMapping
     public ShopResponse myShop() {
         return boutiqueService.getShop(TenantContext.get());
+    }
+
+    /** Réglages WhatsApp : numéro (normalisé au format international) + message par défaut. */
+    @PutMapping("/contact")
+    public ShopResponse updateContact(@Valid @RequestBody ShopContactRequest request) {
+        return boutiqueService.updateContact(TenantContext.get(), request.contactPhone(), request.whatsappDefaultMessage());
     }
 
     /** Definit / remplace le logo de ma boutique. */

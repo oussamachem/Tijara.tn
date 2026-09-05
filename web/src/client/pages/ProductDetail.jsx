@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
-import { shopsApi } from '../api/endpoints';
+import { shopsApi, favoritesApi } from '../api/endpoints';
 import { apiError } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { useCart } from '../cart/CartContext';
 import Header from '../components/Header.jsx';
+import WhatsAppButton from '../components/WhatsAppButton.jsx';
+import ShareBar from '../components/ShareBar.jsx';
+import { DEFAULT_WA_MESSAGE, productUrl } from '../lib/whatsapp';
 import { Button, Spinner, ErrorNote, EmptyState } from '../components/ui.jsx';
 import { money } from '../lib/format';
 
@@ -11,11 +15,15 @@ export default function ProductDetail() {
   const { slug, productId } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { add } = useCart();
+  const [fav, setFav] = useState(false);
 
   const [product, setProduct] = useState(state?.product || null);
   const [shopName, setShopName] = useState(state?.shopName || slug);
   const [shopLogo, setShopLogo] = useState(null);
+  const [contactPhone, setContactPhone] = useState(null);
+  const [defaultMessage, setDefaultMessage] = useState('');
   const [others, setOthers] = useState([]);
   const [loading, setLoading] = useState(!state?.product);
   const [error, setError] = useState('');
@@ -60,11 +68,32 @@ export default function ProductDetail() {
 
   // Fiche boutique (nom + logo) pour le bandeau cliquable.
   useEffect(() => {
-    shopsApi.shop(slug).then(({ data }) => { setShopName(data.name); setShopLogo(data.logoUrl); }).catch(() => {});
+    shopsApi.shop(slug).then(({ data }) => {
+      setShopName(data.name); setShopLogo(data.logoUrl);
+      setContactPhone(data.contactPhone); setDefaultMessage(data.whatsappDefaultMessage || '');
+    }).catch(() => {});
   }, [slug]);
 
   // Réinitialise la sélection quand on change de produit (navigation interne).
   useEffect(() => { setSelColor(null); setSelSize(null); setQty(1); window.scrollTo(0, 0); }, [productId]);
+
+  // État favori (cœur plein/vide) — uniquement si connecté.
+  useEffect(() => {
+    if (!isAuthenticated) { setFav(false); return; }
+    favoritesApi.ids()
+      .then(({ data }) => setFav((data || []).map(String).includes(String(productId))))
+      .catch(() => {});
+  }, [isAuthenticated, productId]);
+
+  const toggleFav = async () => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    const next = !fav;
+    setFav(next); // optimiste
+    try {
+      if (next) await favoritesApi.add(productId);
+      else await favoritesApi.remove(productId);
+    } catch { setFav(!next); } // rollback si échec
+  };
 
   const addToCart = () => {
     if (!variant || !product) return;
@@ -105,10 +134,29 @@ export default function ProductDetail() {
           </div>
         </Link>
 
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">{product.name}</h2>
-          <p className="text-xs text-slate-400">Réf. {product.reference}</p>
-          <p className="mt-1 text-2xl font-extrabold text-brand-700">{money(product.price)}</p>
+        {/* Contacter la boutique sur WhatsApp (masqué si pas de numéro valide) : message boutique +
+            infos produit + LIEN vers la fiche publique. */}
+        <WhatsAppButton phone={contactPhone}
+          message={`${defaultMessage || DEFAULT_WA_MESSAGE}\n`
+            + `Produit : ${product.name}${(selColor || selSize) ? ` (${[selColor, selSize].filter(Boolean).join(' · ')})` : ''} — ${product.price} DT\n`
+            + `Lien : ${productUrl(slug, product.productId)}`} />
+
+        {/* Partage social (lien Open Graph -> bel aperçu sur Facebook / WhatsApp). */}
+        <ShareBar slug={slug} productId={product.productId} name={product.name} />
+
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-slate-800">{product.name}</h2>
+            <p className="text-xs text-slate-400">Réf. {product.reference}</p>
+            <p className="mt-1 text-2xl font-extrabold text-brand-700">{money(product.price)}</p>
+          </div>
+          <button onClick={toggleFav} aria-pressed={fav} aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition active:scale-90 ${
+              fav ? 'border-rose-200 bg-rose-50 text-rose-500' : 'border-slate-200 bg-white text-slate-400 hover:text-rose-500'}`}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill={fav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 21s-7.5-4.35-10-8.5C.5 9.5 2 6 5.5 6c2 0 3.3 1.2 4 2.2C10.2 7.2 11.5 6 13.5 6 17 6 18.5 9.5 22 12.5 19.5 16.65 12 21 12 21Z" />
+            </svg>
+          </button>
         </div>
 
         {variants.length === 0 ? (

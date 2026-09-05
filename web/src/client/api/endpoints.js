@@ -6,5 +6,6 @@ export {
   marketplaceApi as shopsApi,
   myShopApi,
   notificationsApi,
+  favoritesApi,
   profileApi,
 } from '../../api/endpoints.js';

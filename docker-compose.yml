@@ -25,6 +25,86 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: sb-redis
+    restart: unless-stopped
+    # Plafond memoire 500 Mo + eviction LRU ; pas de persistance disque (cache pur).
+    command: ["redis-server", "--maxmemory", "500mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Stockage objet S3 auto-heberge (compatible AWS S3). Bucket persiste sur un volume.
+  minio:
+    image: minio/minio:latest
+    container_name: sb-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY requis}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY requis (>= 8 caracteres)}
+    volumes:
+      - minio_data:/data
+    expose:
+      - "9000"
+    ports:
+      # Console web MinIO (admin des buckets). Optionnel en prod.
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Base PostgreSQL DEDIEE a Keycloak (isolee de la base applicative).
+  keycloak-db:
+    image: postgres:16
+    container_name: sb-keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD requis}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak (IAM/OIDC) : realm 'smartboutique' importe au demarrage (roles + client web).
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: sb-keycloak
+    restart: unless-stopped
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    # start-dev : demarrage simple + import du realm. (Prod stricte : passer a 'start' + hostname/HTTPS.)
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD requis}
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./keycloak/realm-smartboutique.json:/opt/keycloak/data/import/realm-smartboutique.json:ro
+      # Thème de connexion « Smart Boutique » (moderne). Le realm référence loginTheme=smartboutique.
+      - ./keycloak/themes:/opt/keycloak/themes:ro
+    ports:
+      # Console admin + endpoints OIDC de Keycloak.
+      - "8081:8080"
+
   backend:
     build: ./backend
     container_name: sb-backend
@@ -32,8 +112,26 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # Prod : pas de donnees de demo (le seeder de categories globales est incompatible avec le
+      # schema multi-tenant V22 : categories.boutique_id NOT NULL). L'admin plateforme est provisionne
+      # a la volee (JIT) a la 1re connexion Keycloak (role realm admin -> platformAdmin).
+      SEED_DEMO_DATA: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      # Stockage images = S3 (MinIO). Passer STORAGE=local pour revenir au disque.
+      STORAGE: ${STORAGE:-s3}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-sb-images}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY requis}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY requis}
+      S3_PATH_STYLE: "true"
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-smart_boutique}
       # Owner du schema : Flyway (DDL, creation du role sb_app, policies RLS).
       DB_USERNAME: ${POSTGRES_USER:-smartboutique}
@@ -43,7 +141,12 @@ services:
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD requis (role runtime sb_app)}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis (>= 32 caracteres)}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090}
+      # Keycloak (OIDC). ISSUER = URL PUBLIQUE (doit matcher le claim iss des tokens emis cote
+      # navigateur). JWKS = URL INTERNE (le backend joint Keycloak par le reseau Docker). Les deux
+      # peuvent differer : l'issuer est valide par comparaison de chaine, les cles viennent du realm.
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8081/realms/smartboutique}
+      KEYCLOAK_JWKS: ${KEYCLOAK_JWKS:-http://keycloak:8080/realms/smartboutique/protocol/openid-connect/certs}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:8091}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@smartboutique.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD requis}
       ADMIN_NAME: ${ADMIN_NAME:-Administrateur}
@@ -63,7 +166,11 @@ services:
       start_period: 40s
 
   web:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        # URL PUBLIQUE de Keycloak (redirection login SSO cote navigateur). Defaut local :8081.
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8081}
     container_name: sb-web
     restart: unless-stopped
     depends_on:
@@ -74,7 +181,10 @@ services:
       - "8090:80"
 
   web-client:
-    build: ./web-client
+    build:
+      context: ./web-client
+      args:
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8081}
     container_name: sb-web-client
     restart: unless-stopped
     depends_on:
@@ -87,3 +197,5 @@ services:
 volumes:
   pg_data:
   uploads_data:
+  minio_data:
+  keycloak_db_data:

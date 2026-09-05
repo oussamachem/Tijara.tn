@@ -7,14 +7,21 @@ import com.smartboutique.dto.GoodexSettingsResponse;
 import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.BoutiqueStatus;
+import com.smartboutique.entity.Color;
 import com.smartboutique.entity.ShopMember;
 import com.smartboutique.entity.ShopMemberRole;
+import com.smartboutique.entity.Size;
 import com.smartboutique.entity.User;
 import com.smartboutique.exception.BusinessException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.repository.BoutiqueRepository;
+import com.smartboutique.repository.ColorRepository;
 import com.smartboutique.repository.ShopMemberRepository;
+import com.smartboutique.repository.SizeRepository;
 import com.smartboutique.repository.UserRepository;
+import com.smartboutique.service.storage.ImageStorage;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,8 +47,30 @@ public class BoutiqueService {
     private final BoutiqueRepository boutiqueRepository;
     private final UserRepository userRepository;
     private final ShopMemberRepository shopMemberRepository;
+    private final ColorRepository colorRepository;
+    private final SizeRepository sizeRepository;
     private final PasswordEncoder passwordEncoder;
-    private final FileStorageService fileStorageService;
+    private final ImageStorage fileStorageService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    // ---- Catalogue par défaut d'une NOUVELLE boutique (couleurs + tailles), modifiable ensuite. ----
+    private record DefaultColor(String name, String hex) {}
+    private static final List<DefaultColor> DEFAULT_COLORS = List.of(
+            new DefaultColor("Noir", "#111111"),
+            new DefaultColor("Blanc", "#FFFFFF"),
+            new DefaultColor("Gris", "#9CA3AF"),
+            new DefaultColor("Rouge", "#DC2626"),
+            new DefaultColor("Bleu", "#2563EB"),
+            new DefaultColor("Vert", "#16A34A"),
+            new DefaultColor("Jaune", "#FACC15"),
+            new DefaultColor("Rose", "#EC4899"),
+            new DefaultColor("Beige", "#D9C6A5"),
+            new DefaultColor("Marron", "#92400E"));
+    private static final List<String> DEFAULT_SIZES = List.of(
+            "S", "M", "L", "XL", "XXL", "XXXL",
+            "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49");
 
     /** Fiche de la boutique (pour son proprietaire) : nom, slug, logo. */
     @Transactional(readOnly = true)
@@ -72,6 +101,38 @@ public class BoutiqueService {
         boutiqueRepository.save(b);
         if (old != null) fileStorageService.delete(old);
         return ShopResponse.of(b);
+    }
+
+    // ------------------------------- Contact WhatsApp (public) -------------------------------
+
+    /** Réglages WhatsApp : numéro (normalisé au format international) + message par défaut (vide -> null). */
+    @Transactional
+    public ShopResponse updateContact(Long id, String rawPhone, String defaultMessage) {
+        Boutique b = boutiqueRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Boutique", id));
+        b.setContactPhone(normalizeWhatsapp(rawPhone));
+        b.setWhatsappDefaultMessage(blankToNull(defaultMessage));
+        boutiqueRepository.save(b);
+        return ShopResponse.of(b);
+    }
+
+    /**
+     * Normalise un numéro au format wa.me : {@code +<indicatif><numéro>} (chiffres uniquement).
+     * Vide/blanc -> {@code null} (efface). Format invalide (hors 8..15 chiffres) -> 400.
+     * Accepte « +216 12 345 678 », « 0021612345678 », « 21612345678 » -> « +21612345678 ».
+     */
+    static String normalizeWhatsapp(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+        String digits = s.replaceAll("[^0-9]", "");
+        if (digits.startsWith("00")) digits = digits.substring(2);   // préfixe d'appel international
+        if (digits.length() < 8 || digits.length() > 15) {
+            throw new BusinessException(
+                    "Numéro WhatsApp invalide : utilisez le format international, ex. +21612345678.",
+                    HttpStatus.BAD_REQUEST);
+        }
+        return "+" + digits;
     }
 
     // ------------------------------- Réglages Goodex (transporteur) -------------------------------
@@ -138,6 +199,9 @@ public class BoutiqueService {
         shopMemberRepository.save(ShopMember.builder()
                 .shopId(boutique.getId()).userId(owner.getId()).role(ShopMemberRole.OWNER).build());
 
+        // 4) Catalogue de base (couleurs + tailles par defaut, modifiables ensuite).
+        seedDefaultCatalog(boutique.getId());
+
         log.info("[PLATEFORME] Boutique '{}' (slug={}, id={}) creee, proprietaire {}",
                 boutique.getName(), slug, boutique.getId(), email);
         return BoutiqueResponse.of(boutique);
@@ -159,9 +223,33 @@ public class BoutiqueService {
                 .build());
         shopMemberRepository.save(ShopMember.builder()
                 .shopId(boutique.getId()).userId(ownerUserId).role(ShopMemberRole.OWNER).build());
+        // Catalogue de base (couleurs + tailles par defaut, modifiables ensuite).
+        seedDefaultCatalog(boutique.getId());
         log.info("[SELF-SERVICE] Boutique '{}' (slug={}, id={}) creee par l'utilisateur {}",
                 boutique.getName(), slug, boutique.getId(), ownerUserId);
         return BoutiqueResponse.of(boutique);
+    }
+
+    /**
+     * Seed le catalogue de base d'une NOUVELLE boutique : couleurs + tailles par defaut. Doit tourner
+     * DANS la transaction de creation (meme connexion) : on positionne le tenant courant sur la
+     * nouvelle boutique via {@code app.current_boutique} pour que le DEFAULT SQL {@code boutique_id}
+     * ET la RLS (WITH CHECK) resolvent au bon tenant. Le proprietaire pourra tout modifier ensuite.
+     */
+    private void seedDefaultCatalog(Long boutiqueId) {
+        entityManager.flush();   // la boutique (FK boutique_id) doit exister avant les inserts scopes
+        // SET LOCAL du tenant courant sur la nouvelle boutique (scope transaction).
+        entityManager.createNativeQuery("SELECT set_config('app.current_boutique', :bid, true)")
+                .setParameter("bid", String.valueOf(boutiqueId))
+                .getSingleResult();
+        for (DefaultColor c : DEFAULT_COLORS) {
+            colorRepository.save(Color.builder().name(c.name()).hex(c.hex()).build());
+        }
+        int pos = 1;
+        for (String label : DEFAULT_SIZES) {
+            sizeRepository.save(Size.builder().label(label).position(pos++).build());
+        }
+        entityManager.flush();   // materialise les inserts sous le bon tenant (DEFAULT + RLS)
     }
 
     @Transactional

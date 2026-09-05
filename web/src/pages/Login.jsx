@@ -1,35 +1,16 @@
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { apiError } from '../api/client.js';
-import { Button, Field, Input, Alert } from '../components/ui.jsx';
+import { Button } from '../components/ui.jsx';
 
 /**
- * Login UNIFIÉ : identité (compte global). Aucun filtre de rôle — c'est le contexte (memberships)
- * qui décide de l'espace après connexion (client / propriétaire / vendeur / plateforme).
+ * Page de connexion UNIFIÉE (SSO). L'authentification est déléguée à Keycloak : « Se connecter »
+ * redirige vers la page Keycloak (thème personnalisé) puis revient sur l'app. Aucun mot de passe
+ * n'est saisi ici. Après retour, c'est le contexte (memberships) qui décide de l'espace.
  */
 export default function Login() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const { login, register } = useAuth();
   const { state } = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await login(email.trim(), password);
-      navigate(state?.from || '/', { replace: true });
-    } catch (err) {
-      setError(apiError(err, 'Connexion impossible'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const from = state?.from || '/';
 
   return (
     <div className="flex min-h-full items-center justify-center bg-slate-100 p-4">
@@ -40,25 +21,18 @@ export default function Login() {
           <p className="text-sm text-slate-500">Un seul compte pour tout gérer</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Alert type="error" onClose={() => setError('')}>{error}</Alert>
-          <Field label="Email" required>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="vous@email.com" required autoFocus autoComplete="email" />
-          </Field>
-          <Field label="Mot de passe" required>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••" required autoComplete="current-password" />
-          </Field>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Connexion…' : 'Se connecter'}
+        <div className="space-y-3">
+          <Button type="button" className="w-full" onClick={() => login(from)}>
+            Se connecter
           </Button>
-        </form>
-
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <Link to="/register" className="font-semibold text-brand-600 hover:underline">Créer un compte</Link>
-          <Link to="/forgot-password" className="text-slate-500 hover:underline">Mot de passe oublié ?</Link>
+          <Button type="button" variant="secondary" className="w-full" onClick={() => register()}>
+            Créer un compte
+          </Button>
         </div>
+
+        <p className="mt-6 text-center text-xs text-slate-400">
+          Connexion sécurisée via Keycloak (SSO)
+        </p>
       </div>
     </div>
   );

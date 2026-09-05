@@ -2,6 +2,7 @@ package com.smartboutique.service;
 
 import com.smartboutique.dto.FeedProductResponse;
 import com.smartboutique.dto.PageResponse;
+import com.smartboutique.dto.ProductOgData;
 import com.smartboutique.dto.PublicProductResponse;
 import com.smartboutique.dto.PublicProductResponse.PublicImage;
 import com.smartboutique.dto.PublicProductResponse.PublicVariantResponse;
@@ -9,6 +10,7 @@ import com.smartboutique.dto.ShopResponse;
 import com.smartboutique.dto.ShopStatsResponse;
 import com.smartboutique.entity.Boutique;
 import com.smartboutique.entity.BoutiqueStatus;
+import com.smartboutique.entity.Category;
 import com.smartboutique.entity.Product;
 import com.smartboutique.entity.ProductImage;
 import com.smartboutique.entity.ProductVariant;
@@ -20,6 +22,7 @@ import com.smartboutique.repository.SaleRepository;
 import com.smartboutique.tenancy.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,11 +31,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Marketplace public. La resolution du tenant se fait par le SLUG (pas par JWT) : {@link #enterShop}
@@ -96,6 +104,145 @@ public class ShopService {
         return res;
     }
 
+    // ==================== MARKETPLACE GLOBALE (barre de categories, cross-boutique) ====================
+
+    /** Ordre d'affichage prioritaire des grandes familles ; le reste suit par ordre alphabetique. */
+    private static final List<String> CATEGORY_PRIORITY = List.of(
+            "femme", "homme", "enfant", "robes", "chaussures", "accessoires");
+
+    /**
+     * Noms de categories DISTINCTS presents dans la marketplace (categories ayant au moins un produit
+     * disponible), tous marchands confondus. Regroupement par nom insensible a la casse/aux espaces
+     * (MVP : pas de referentiel global). Chaque boutique est lue sous sa propre RLS via {@link #self}.
+     */
+    public List<String> marketplaceCategories() {
+        List<Boutique> shops = boutiqueRepository.searchActive("");
+        Map<String, String> byKey = new LinkedHashMap<>();   // cle normalisee -> libelle affiche (1er vu)
+        for (Boutique b : shops) {
+            TenantContext.set(b.getId());
+            try {
+                for (String name : self.categoryNamesForShop()) {
+                    byKey.putIfAbsent(normalizeCategory(name), name.trim());
+                }
+            } catch (RuntimeException ignore) {
+                // une boutique en erreur ne casse pas la barre
+            } finally {
+                TenantContext.clear();
+            }
+        }
+        return byKey.entrySet().stream()
+                .sorted(Comparator
+                        .comparingInt((Map.Entry<String, String> e) -> {
+                            int i = CATEGORY_PRIORITY.indexOf(e.getKey());
+                            return i < 0 ? Integer.MAX_VALUE : i;
+                        })
+                        .thenComparing(Map.Entry::getValue, String.CASE_INSENSITIVE_ORDER))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
+    /** Noms de categories du tenant courant ayant au moins un produit disponible. Via proxy (RLS posee). */
+    @Transactional(readOnly = true)
+    public Set<String> categoryNamesForShop() {
+        Set<String> names = new LinkedHashSet<>();
+        for (Product p : productRepository.findAll()) {   // RLS -> produits du tenant courant
+            Category c = p.getCategory();
+            if (c == null || c.getName() == null || c.getName().isBlank()) continue;
+            if (availableVariants(p).isEmpty()) continue;
+            names.add(c.getName().trim());
+        }
+        return names;
+    }
+
+    /**
+     * Fil marketplace d'UNE categorie (par NOM), cross-boutique. Champs strictement PUBLICS
+     * (nom produit, prix de vente, image de couverture, boutique) -> jamais de cout/marge/stock
+     * d'une autre boutique. Pagination en memoire sur un ordre deterministe -> scroll infini stable.
+     */
+    @Cacheable(cacheNames = "marketplace", key = "'products:' + #category + ':' + #page + ':' + #size")
+    public PageResponse<FeedProductResponse> marketplaceProducts(String category, int page, int size) {
+        String norm = normalizeCategory(category);
+        List<Boutique> shops = norm.isEmpty() ? List.of() : boutiqueRepository.searchActive("");
+        List<FeedProductResponse> all = new ArrayList<>();
+        for (Boutique b : shops) {
+            TenantContext.set(b.getId());
+            try {
+                all.addAll(self.categoryProductsForShop(b, norm));
+            } catch (RuntimeException ignore) {
+                // une boutique en erreur ne casse pas le fil
+            } finally {
+                TenantContext.clear();
+            }
+        }
+        all.sort(Comparator.comparing(FeedProductResponse::productId).reversed());   // ordre stable inter-pages
+        int total = all.size();
+        int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
+        int from = Math.min(page * size, total);
+        int to = Math.min(from + size, total);
+        List<FeedProductResponse> content = new ArrayList<>(all.subList(from, to));
+        boolean last = page >= totalPages - 1;
+        return new PageResponse<>(content, page, size, total, totalPages, last);
+    }
+
+    /** Produits disponibles du tenant courant appartenant a la categorie normalisee. Via proxy (RLS). */
+    @Transactional(readOnly = true)
+    public List<FeedProductResponse> categoryProductsForShop(Boutique b, String norm) {
+        List<FeedProductResponse> res = new ArrayList<>();
+        for (Product p : productRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
+            Category c = p.getCategory();
+            if (c == null || !norm.equals(normalizeCategory(c.getName()))) continue;
+            if (availableVariants(p).isEmpty()) continue;   // seulement le disponible
+            String img = p.getImages().stream()
+                    .min(Comparator.comparingInt(ProductImage::getPosition))
+                    .map(ProductImage::getUrl).orElse(null);
+            res.add(new FeedProductResponse(b.getSlug(), b.getName(), b.getLogoUrl(), p.getId(), p.getName(), p.getSalePrice(), img));
+        }
+        return res;
+    }
+
+    /** Normalisation d'un nom de categorie : minuscules + trim + espaces internes compresses. */
+    private static String normalizeCategory(String s) {
+        if (s == null) return "";
+        return s.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+    }
+
+    /**
+     * Resout les infos PUBLIQUES (cartes) d'un ensemble de produits par leur id, cross-boutique
+     * (ex. liste des favoris d'un utilisateur : ses produits peuvent venir de plusieurs boutiques).
+     * Chaque boutique est lue sous sa propre RLS -> aucune donnee sensible d'autrui. Champs safe.
+     */
+    public List<FeedProductResponse> publicProductsByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        Set<Long> idSet = new HashSet<>(ids);
+        List<Boutique> shops = boutiqueRepository.searchActive("");
+        List<FeedProductResponse> all = new ArrayList<>();
+        for (Boutique b : shops) {
+            TenantContext.set(b.getId());
+            try {
+                all.addAll(self.productsByIdsForShop(b, idSet));
+            } catch (RuntimeException ignore) {
+                // une boutique en erreur ne casse pas la liste
+            } finally {
+                TenantContext.clear();
+            }
+        }
+        all.sort(Comparator.comparing(FeedProductResponse::productId).reversed());
+        return all;
+    }
+
+    /** Produits du tenant courant dont l'id est dans {@code ids}. Via proxy (RLS posee). */
+    @Transactional(readOnly = true)
+    public List<FeedProductResponse> productsByIdsForShop(Boutique b, Set<Long> ids) {
+        List<FeedProductResponse> res = new ArrayList<>();
+        for (Product p : productRepository.findAllById(ids)) {   // RLS -> sous-ensemble de CE tenant
+            String img = p.getImages().stream()
+                    .min(Comparator.comparingInt(ProductImage::getPosition))
+                    .map(ProductImage::getUrl).orElse(null);
+            res.add(new FeedProductResponse(b.getSlug(), b.getName(), b.getLogoUrl(), p.getId(), p.getName(), p.getSalePrice(), img));
+        }
+        return res;
+    }
+
     /** Annuaire public : boutiques ACTIVES correspondant a la recherche (boutiques = hors RLS). */
     @Transactional(readOnly = true)
     public List<ShopResponse> search(String query) {
@@ -148,6 +295,21 @@ public class ShopService {
                 .orElseThrow(() -> new ResourceNotFoundException("Boutique", slug));
         TenantContext.set(b.getId());
         return b;
+    }
+
+    /**
+     * Données OG (safe) d'un produit du tenant courant (l'appelant a déjà posé le tenant via
+     * {@link #enterShop}). RLS -> 404 si le produit n'appartient pas à cette boutique. Champs publics.
+     */
+    @Transactional(readOnly = true)
+    public ProductOgData productOgScoped(Long productId) {
+        Product p = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Produit", productId));
+        String img = p.getImages().stream()
+                .min(Comparator.comparingInt(ProductImage::getPosition))
+                .map(ProductImage::getUrl).orElse(null);
+        String cat = p.getCategory() != null ? p.getCategory().getName() : null;
+        return new ProductOgData(p.getId(), p.getName(), p.getSalePrice(), cat, img);
     }
 
     /** Catalogue public du tenant courant (declinaisons disponibles + galerie, regroupees par produit). */

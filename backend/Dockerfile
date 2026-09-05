@@ -1,5 +1,5 @@
 # ---- Etape 1 : build avec Maven ----
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 # Cache des dependances : on copie d'abord le pom puis on telecharge.
 COPY pom.xml .
@@ -8,7 +8,7 @@ COPY src ./src
 RUN mvn -q clean package -DskipTests
 
 # ---- Etape 2 : image d'execution legere ----
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 # curl : utilise par le healthcheck Docker (/actuator/health).
 RUN apt-get update && apt-get install -y --no-install-recommends curl \

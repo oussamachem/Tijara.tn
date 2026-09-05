@@ -27,6 +27,17 @@ spring:
   flyway:
     enabled: ${FLYWAY_ENABLED:false}
 
+  # Redis : cache du fil marketplace / categories. Si Redis est absent, le cache est ignore
+  # (CacheConfig.errorHandler) -> le site marche quand meme. maxmemory 500mb fixe cote serveur.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      connect-timeout: 2s
+  cache:
+    type: ${CACHE_TYPE:redis}
+
   servlet:
     multipart:
       # Upload d'images produits (Phase 3).
@@ -46,10 +57,15 @@ app:
     # SUPER_ADMIN plateforme (gere les boutiques). Distinct de l'admin de boutique.
     super-admin-email: ${SUPER_ADMIN_EMAIL:superadmin@smartboutique.com}
     super-admin-password: ${SUPER_ADMIN_PASSWORD:Super@123}
-  # Secret JWT et duree de vie du token (access token).
+  # Secret JWT et duree de vie du token (access token) — legacy, conserve pour compat.
   jwt:
     secret: ${JWT_SECRET:change-me-in-production-this-is-a-very-long-dev-secret-key-0123456789}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  # Keycloak (OIDC) : validation des tokens. JWKS charge a la 1re requete (pas au demarrage) +
+  # validation de l'issuer -> le backend demarre meme si Keycloak n'est pas encore pret.
+  keycloak:
+    issuer: ${KEYCLOAK_ISSUER:http://localhost:8081/realms/smartboutique}
+    jwk-set-uri: ${KEYCLOAK_JWKS:${app.keycloak.issuer}/protocol/openid-connect/certs}
   # Duree de validite d'un token de reinitialisation de mot de passe (defaut 30 min).
   password-reset:
     expiration-ms: ${PASSWORD_RESET_EXPIRATION_MS:1800000}
@@ -60,8 +76,19 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost:3000,http://localhost:19006,https://*.trycloudflare.com}
   # Active le seed des donnees de demo (categories d'exemple). Desactive en prod.
   seed-demo-data: ${SEED_DEMO_DATA:true}
-  # Dossier de stockage des images uploadees (Phase 3).
+  # Dossier de stockage des images uploadees (mode local).
   uploads-dir: ${UPLOADS_DIR:uploads}
+  # Backend de stockage des images : 'local' (disque/volume) ou 's3' (AWS S3 / MinIO).
+  storage: ${STORAGE:local}
+  s3:
+    # Endpoint : vide = vrai AWS S3 ; sinon MinIO/S3-compatible (ex. http://minio:9000).
+    endpoint: ${S3_ENDPOINT:}
+    bucket: ${S3_BUCKET:sb-images}
+    region: ${S3_REGION:us-east-1}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    # true pour MinIO (chemin /bucket/cle) ; AWS accepte aussi.
+    path-style: ${S3_PATH_STYLE:true}
 
 # Actuator : on n'expose que health (utilise par le healthcheck Docker) et info.
 management:

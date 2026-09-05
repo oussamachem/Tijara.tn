@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { profileApi } from '../api/endpoints.js';
 import { apiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { keycloak } from '../auth/keycloak.js';
 import { Button, Field, Input, Select, Alert, Spinner } from '../components/ui.jsx';
 import { GOVERNORATS } from '../lib/goodex.js';
 
@@ -15,11 +16,6 @@ export default function Profile() {
   const [savingP, setSavingP] = useState(false);
   const [okP, setOkP] = useState('');
   const [errP, setErrP] = useState('');
-
-  const [pwd, setPwd] = useState({ oldPassword: '', newPassword: '' });
-  const [savingPwd, setSavingPwd] = useState(false);
-  const [okPwd, setOkPwd] = useState('');
-  const [errPwd, setErrPwd] = useState('');
 
   useEffect(() => {
     profileApi.get()
@@ -35,23 +31,14 @@ export default function Profile() {
     e.preventDefault();
     setSavingP(true); setOkP(''); setErrP('');
     try {
+      // L'email est en lecture seule (identité Keycloak = clé de rattachement) : on renvoie la valeur
+      // stockée telle quelle, jamais modifiée depuis l'app.
       await profileApi.update({
         fullName: form.fullName.trim(), email: form.email.trim(),
         phone: form.phone.trim(), address: form.address.trim(), governorat: form.governorat || null,
       });
       setOkP('Profil mis à jour.');
     } catch (err) { setErrP(apiError(err)); } finally { setSavingP(false); }
-  };
-
-  const savePwd = async (e) => {
-    e.preventDefault();
-    if (pwd.newPassword.length < 6) { setErrPwd('Le nouveau mot de passe doit contenir au moins 6 caractères.'); return; }
-    setSavingPwd(true); setOkPwd(''); setErrPwd('');
-    try {
-      await profileApi.changePassword({ oldPassword: pwd.oldPassword, newPassword: pwd.newPassword });
-      setOkPwd('Mot de passe modifié.');
-      setPwd({ oldPassword: '', newPassword: '' });
-    } catch (err) { setErrPwd(apiError(err)); } finally { setSavingPwd(false); }
   };
 
   return (
@@ -71,7 +58,10 @@ export default function Profile() {
               <Alert type="error" onClose={() => setErrP('')}>{errP}</Alert>
               <Alert type="success" onClose={() => setOkP('')}>{okP}</Alert>
               <Field label="Nom complet"><Input value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} required /></Field>
-              <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required /></Field>
+              <Field label="Email">
+                <Input type="email" value={form.email} readOnly disabled className="cursor-not-allowed bg-slate-100 text-slate-500" />
+                <p className="mt-1 text-xs text-slate-400">Géré par votre compte de connexion (Keycloak).</p>
+              </Field>
 
               <div className="mt-1 border-t border-slate-100 pt-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Livraison à domicile</p>
@@ -90,14 +80,15 @@ export default function Profile() {
               <Button type="submit" className="w-full" disabled={savingP}>{savingP ? 'Enregistrement…' : 'Enregistrer'}</Button>
             </form>
 
-            <form onSubmit={savePwd} className="space-y-3 rounded-2xl bg-white p-5 shadow-sm">
-              <h2 className="font-semibold text-slate-700">Changer le mot de passe</h2>
-              <Alert type="error" onClose={() => setErrPwd('')}>{errPwd}</Alert>
-              <Alert type="success" onClose={() => setOkPwd('')}>{okPwd}</Alert>
-              <Field label="Mot de passe actuel"><Input type="password" autoComplete="current-password" value={pwd.oldPassword} onChange={(e) => setPwd((p) => ({ ...p, oldPassword: e.target.value }))} required /></Field>
-              <Field label="Nouveau mot de passe"><Input type="password" autoComplete="new-password" value={pwd.newPassword} onChange={(e) => setPwd((p) => ({ ...p, newPassword: e.target.value }))} required /></Field>
-              <Button type="submit" className="w-full" disabled={savingPwd}>{savingPwd ? 'Modification…' : 'Modifier le mot de passe'}</Button>
-            </form>
+            <div className="space-y-3 rounded-2xl bg-white p-5 shadow-sm">
+              <h2 className="font-semibold text-slate-700">Sécurité</h2>
+              <p className="text-sm text-slate-500">
+                Le mot de passe et la connexion à deux facteurs sont gérés dans votre compte sécurisé.
+              </p>
+              <Button type="button" variant="secondary" className="w-full" onClick={() => keycloak.accountManagement()}>
+                Gérer mon mot de passe
+              </Button>
+            </div>
 
             <p className="text-center text-xs text-slate-400">Connecté : {user?.email}</p>
           </>

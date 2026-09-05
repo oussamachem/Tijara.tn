@@ -18,11 +18,12 @@
     <description>API REST de gestion de stock et de vente par QR Code - Smart Boutique</description>
 
     <properties>
-        <!-- Cible Java 17 imposee par le cahier des charges (compilable avec un JDK 17 ou superieur). -->
-        <java.version>17</java.version>
+        <!-- Cible Java 21 (LTS) : runtime du projet (JDK 21 en dev et dans l'image Docker). -->
+        <java.version>21</java.version>
         <!-- Versions des dependances externes a la BOM Spring Boot. -->
         <jjwt.version>0.12.6</jjwt.version>
         <zxing.version>3.5.3</zxing.version>
+        <aws.sdk.version>2.28.16</aws.sdk.version>
     </properties>
 
     <dependencies>
@@ -56,6 +57,29 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Redis : cache du fil marketplace / categories (montee en charge). maxmemory 500mb cote serveur. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!-- Stockage objet S3 (AWS SDK v2) : images produits/logos. Endpoint configurable ->
+             vrai AWS S3 en prod, ou MinIO auto-heberge (meme protocole). -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
         <!-- Flyway : migrations de schema en production (baseline V1 + ddl-auto=validate). -->
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -66,10 +90,16 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- Securite (Phase 2) : chaine de filtres, autorisations, BCrypt. -->
+        <!-- Securite : chaine de filtres, autorisations, BCrypt. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- OAuth2 Resource Server : validation des JWT Keycloak (OIDC) via JWKS. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
 
         <!-- JWT (JJWT) : generation et verification des access tokens. -->

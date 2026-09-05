@@ -67,9 +67,9 @@ export default function BulkQrPrint({ product, onClose }) {
 
   if (!product) return null;
 
-  // Prix produit (imprimé sur l'étiquette, en gras). La référence (couleur/taille) n'est PAS
-  // ré-imprimée en texte : elle est déjà encodée dans le QR + lisible via "couleur · taille".
+  // Prix produit (imprimé sur l'étiquette, en gras) + référence produit (identifiant lisible).
   const priceStr = product.salePrice != null ? formatMoney(product.salePrice) : '';
+  const refStr = product.reference ? `Réf. ${product.reference}` : '';
 
   // Liste des etiquettes : chaque variante repetee `quantity` fois (exemplaires identiques).
   const labels = [];
@@ -78,22 +78,26 @@ export default function BulkQrPrint({ product, onClose }) {
   // -------- Mise en page THERMIQUE (adaptee a la taille de l'etiquette) --------
   const showShop = h >= 20;           // nom boutique en tete
   const showName = h >= 28;           // nom produit
+  const showRef = h >= 26;            // reference produit (identifiant)
   const showAttrs = h >= 24;          // couleur . taille
-  const textLines = (showShop ? 1 : 0) + (showName ? 1 : 0) + (showAttrs ? 1 : 0) + 1; // + prix (toujours)
-  const qrMm = Math.max(8, Math.min(w - 4, h - (textLines * 4 + 3)));  // carre centre + quiet zone
-  const refPt = Math.max(5, Math.min(10, w / 6));
+  // Proportions : nom boutique + textes produit PLUS GRANDS, QR un peu PLUS PETIT (demande client).
+  const qrMm = Math.max(8, Math.min(w - 4, h * 0.40));   // QR = 40% de la hauteur
+  const ptOf = (frac) => (h * 2.835 * frac).toFixed(1);  // police = fraction de la hauteur (pt)
+  // Nom boutique : taille AUTO pour tenir en ENTIER sur UNE ligne (remplit la largeur, jamais coupé).
+  const shopPt = Math.max(6, Math.min(h * 2.835 * 0.12, (w - 3) * 2.835 / (Math.max(shopName.length, 1) * 0.78))).toFixed(1);
 
   const ThermalLabel = ({ v }) => {
     const attrs = [v.colorName, v.size].filter(Boolean).join(' · ');   // champs null omis
     return (
       <div className="qr-thermal-label" style={{ width: `${w}mm`, height: `${h}mm` }}>
-        {showShop && <div className="qr-t-shop" style={{ fontSize: `${refPt - 1}pt` }}>{shopName}</div>}
+        {showShop && <div className="qr-t-shop" style={{ fontSize: `${shopPt}pt` }}>{shopName}</div>}
+        {showName && <div className="qr-t-name" style={{ fontSize: `${ptOf(0.066)}pt` }}>{product.name}</div>}
         {qrByVariant[v.id]
           ? <img src={qrByVariant[v.id]} alt="" style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }} />
           : <div style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }} />}
-        {showName && <div className="qr-t-name" style={{ fontSize: `${refPt - 1.5}pt` }}>{product.name}</div>}
-        {showAttrs && attrs && <div className="qr-t-attrs" style={{ fontSize: `${refPt - 1.5}pt` }}>{attrs}</div>}
-        {priceStr && <div className="qr-t-price" style={{ fontSize: `${refPt + 0.5}pt` }}>{priceStr}</div>}
+        {showRef && refStr && <div className="qr-t-ref" style={{ fontSize: `${ptOf(0.063)}pt` }}>{refStr}</div>}
+        {showAttrs && attrs && <div className="qr-t-attrs" style={{ fontSize: `${ptOf(0.06)}pt` }}>{attrs}</div>}
+        {priceStr && <div className="qr-t-price" style={{ fontSize: `${ptOf(0.10)}pt` }}>{priceStr}</div>}
       </div>
     );
   };
@@ -105,8 +109,9 @@ export default function BulkQrPrint({ product, onClose }) {
     return (
       <div className="qr-label">
         <div className="qr-shop">{shopName}</div>
-        {qrByVariant[v.id] ? <img src={qrByVariant[v.id]} alt="" className="qr-img" /> : <div className="qr-img" />}
         <div className="qr-name">{product.name}</div>
+        {qrByVariant[v.id] ? <img src={qrByVariant[v.id]} alt="" className="qr-img" /> : <div className="qr-img" />}
+        {refStr && <div className="qr-ref">{refStr}</div>}
         {attrs && <div className="qr-attrs">{attrs}</div>}
         {priceStr && <div className="qr-price">{priceStr}</div>}
       </div>

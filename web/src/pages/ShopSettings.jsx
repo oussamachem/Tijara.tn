@@ -20,11 +20,27 @@ export default function ShopSettings() {
   const [gBusy, setGBusy] = useState(false);
   const [gMsg, setGMsg] = useState('');
 
+  // Contact WhatsApp de la boutique (numéro + message par défaut)
+  const [waPhone, setWaPhone] = useState('');
+  const [waDefault, setWaDefault] = useState('');
+  const [waBusy, setWaBusy] = useState(false);
+  const [waMsg, setWaMsg] = useState('');
+
   const load = () => {
     shopSettingsApi.get()
-      .then(({ data }) => setShop(data))
+      .then(({ data }) => { setShop(data); setWaPhone(data.contactPhone || ''); setWaDefault(data.whatsappDefaultMessage || ''); })
       .catch((e) => setError(apiError(e)))
       .finally(() => setLoading(false));
+  };
+
+  const saveContact = async (e) => {
+    e.preventDefault();
+    setWaBusy(true); setWaMsg(''); setError('');
+    try {
+      const { data } = await shopSettingsApi.updateContact({ contactPhone: waPhone.trim(), whatsappDefaultMessage: waDefault.trim() });
+      setShop(data); setWaPhone(data.contactPhone || ''); setWaDefault(data.whatsappDefaultMessage || '');
+      setWaMsg(data.contactPhone ? `Enregistré. Numéro : ${data.contactPhone}` : 'Numéro retiré.');
+    } catch (err) { setError(apiError(err)); } finally { setWaBusy(false); }
   };
   useEffect(load, []);
 
@@ -123,6 +139,28 @@ export default function ShopSettings() {
             Ouvrir ma vitrine ↗
           </a>
         </div>
+      </Card>
+
+      {/* Contact WhatsApp */}
+      <Card title="Contact WhatsApp">
+        <p className="mb-3 text-sm text-slate-500">
+          Numéro <b>WhatsApp</b> au format international (ex. <b>+21612345678</b>). Un bouton « Contacter sur
+          WhatsApp » apparaît alors sur vos fiches produit et le panier, avec le lien du produit. Laissez le
+          numéro vide pour retirer le bouton.
+        </p>
+        <form onSubmit={saveContact} className="space-y-3">
+          <Field label="Numéro WhatsApp">
+            <Input value={waPhone} onChange={(e) => setWaPhone(e.target.value)} placeholder="+216 12 345 678" inputMode="tel" />
+          </Field>
+          <Field label="Message automatique par défaut">
+            <textarea value={waDefault} onChange={(e) => setWaDefault(e.target.value)} rows={3} maxLength={500}
+              placeholder="Bonjour, je suis intéressé(e) par ce produit."
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-50" />
+          </Field>
+          <p className="text-xs text-slate-400">Vide → un message par défaut est utilisé. Le client peut modifier le texte avant d'envoyer.</p>
+          <Button type="submit" disabled={waBusy}>{waBusy ? 'Enregistrement…' : 'Enregistrer'}</Button>
+        </form>
+        {waMsg && <div className="mt-2"><Alert type="success" onClose={() => setWaMsg('')}>{waMsg}</Alert></div>}
       </Card>
 
       {/* Transporteur Goodex */}

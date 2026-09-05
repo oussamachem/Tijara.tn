@@ -12,6 +12,7 @@ import Checkout from '../client/pages/Checkout.jsx';
 import Orders from '../client/pages/Orders.jsx';
 import Account from '../client/pages/Account.jsx';
 import Notifications from '../client/pages/Notifications.jsx';
+import Favorites from '../client/pages/Favorites.jsx';
 
 function BottomNav({ unread }) {
   const { count } = useCart();
@@ -124,6 +125,7 @@ export default function ClientSpace() {
             <Route path="orders" element={<Orders />} />
             <Route path="account" element={<Account />} />
             <Route path="notifications" element={<Notifications onSeen={() => setUnread(0)} />} />
+            <Route path="favorites" element={<Favorites />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

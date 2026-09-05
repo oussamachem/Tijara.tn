@@ -16,6 +16,10 @@ export default defineConfig({
     proxy: {
       '/api': { target: API_TARGET, changeOrigin: true },
       '/uploads': { target: API_TARGET, changeOrigin: true },
+      // Page de partage Open Graph d'un produit -> rendue par le backend (meta serveur pour les
+      // crawlers FB/WhatsApp). changeOrigin:false + xfwd:true : le backend garde l'hôte public
+      // (X-Forwarded-*) pour bâtir des URLs OG absolues. Ne matche QUE /s/<slug>/produit/<id>.
+      '^/s/[^/]+/produit/': { target: API_TARGET, changeOrigin: false, xfwd: true },
     },
   },
 });

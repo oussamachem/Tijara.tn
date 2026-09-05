@@ -1,58 +1,59 @@
-import { createContext, useContext, useState } from 'react';
-import { authApi } from '../api/endpoints.js';
-import { TOKEN_KEY, USER_KEY } from '../api/client.js';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { keycloak } from '../auth/keycloak.js';
 
 const AuthContext = createContext(null);
 
-// Vérifie que le JWT n'est pas expiré (lecture de la claim "exp"), sans dépendance externe.
-function isTokenValid(token) {
-  if (!token) return false;
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
+/**
+ * Construit l'objet `user` applicatif à partir des claims du token Keycloak.
+ * Le back-office n'a besoin que de l'email (affichage) et du flag admin plateforme
+ * (rôle realm « admin »). Les rôles de boutique restent résolus côté serveur (shop_members).
+ */
+function userFromToken() {
+  if (!keycloak.authenticated || !keycloak.tokenParsed) return null;
+  const t = keycloak.tokenParsed;
+  const roles = t.realm_access?.roles ?? [];
+  return {
+    email: t.email || t.preferred_username || '',
+    fullName: t.name || t.preferred_username || '',
+    platformAdmin: roles.includes('admin'),
+    roles,
+  };
 }
 
 /**
- * Auth = IDENTITÉ (compte global unique). Le login ne préjuge d'AUCUN rôle : c'est le ShopContext
- * (via GET /api/me/shops) qui décide de l'espace (CLIENT / OWNER / VENDOR / PLATEFORME).
+ * Auth = IDENTITÉ (compte global unique), fournie par Keycloak (SSO / PKCE). Le login ne préjuge
+ * d'AUCUN rôle de boutique : c'est le ShopContext (GET /api/me/shops) qui décide de l'espace.
  */
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    const raw = localStorage.getItem(USER_KEY);
-    if (!token || !raw || !isTokenValid(token)) {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-      return null;
-    }
-    return JSON.parse(raw);
-  });
+  const [user, setUser] = useState(userFromToken);
 
-  const persist = (token, u) => {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(u));
-    setUser(u);
-  };
+  // Synchronise `user` sur les évènements de cycle de vie du token (login au retour de redirection,
+  // refresh, expiration). keycloak-js appelle ces hooks ; on relit les claims à chaque fois.
+  useEffect(() => {
+    const sync = () => setUser(userFromToken());
+    keycloak.onAuthSuccess = sync;
+    keycloak.onAuthRefreshSuccess = sync;
+    keycloak.onAuthLogout = () => setUser(null);
+    sync();
+    return () => {
+      keycloak.onAuthSuccess = undefined;
+      keycloak.onAuthRefreshSuccess = undefined;
+      keycloak.onAuthLogout = undefined;
+    };
+  }, []);
 
-  const login = async (email, password) => {
-    const { data } = await authApi.login(email, password);
-    persist(data.token, data.user);
-    return data.user;
-  };
+  // Redirige vers la page de connexion Keycloak (thème personnalisé). `redirectUri` = où revenir.
+  const login = (from) =>
+    keycloak.login({ redirectUri: window.location.origin + (from || '/') });
 
-  const register = async (payload) => {
-    const { data } = await authApi.register(payload);
-    persist(data.token, data.user);
-    return data.user;
-  };
+  // Page d'inscription Keycloak (self-registration activée dans le realm).
+  const register = () =>
+    keycloak.register({ redirectUri: window.location.origin + '/' });
 
+  // Déconnexion SSO globale (invalide la session Keycloak, pas seulement le token local).
   const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setUser(null);
+    localStorage.removeItem('sb_ctx'); // contexte de travail (ShopContext)
+    keycloak.logout({ redirectUri: window.location.origin + '/login' });
   };
 
   return (

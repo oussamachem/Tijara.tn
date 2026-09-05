@@ -1,5 +1,8 @@
 spring:
   # La datasource est fournie dynamiquement par Testcontainers (cf. AbstractPostgresIT).
+  # Pas de Redis en test : cache desactive.
+  cache:
+    type: none
   jpa:
     hibernate:
       # Hibernate genere le schema dans le conteneur Postgres a chaque contexte de test

@@ -10,7 +10,6 @@ import Checkout from './pages/Checkout.jsx';
 import Orders from './pages/Orders.jsx';
 import Account from './pages/Account.jsx';
 import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
 
 function BottomNav() {
   const { count } = useCart();
@@ -67,7 +66,8 @@ export default function App() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/account" element={<Account />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          {/* Inscription gérée par Keycloak (page SSO). */}
+          <Route path="/register" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

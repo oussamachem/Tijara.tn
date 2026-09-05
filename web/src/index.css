@@ -45,7 +45,7 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
   background: #fff;
 }
-.qr-shop { font-size: 9px; font-weight: 700; color: #334155; }
+.qr-shop { font-size: 9px; font-weight: 700; color: #334155; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .qr-img { width: 100%; max-width: 110px; aspect-ratio: 1 / 1; margin: 3px auto; display: block; }
 .qr-ref { font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; word-break: break-all; }
 .qr-name { font-size: 10px; color: #334155; }
@@ -71,7 +71,7 @@ body {
   text-align: center;
 }
 .qr-thermal-label img { image-rendering: pixelated; }   /* modules QR nets a l'agrandissement */
-.qr-t-shop { font-weight: 800; color: #0f172a; line-height: 1.05; letter-spacing: .2px; }
+.qr-t-shop { font-weight: 800; color: #0f172a; line-height: 1.05; letter-spacing: .2px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .qr-t-ref { font-family: ui-monospace, monospace; font-weight: 700; line-height: 1.05; }
 .qr-t-attrs { color: #222; line-height: 1.05; }
 .qr-t-name { color: #555; line-height: 1.05; }

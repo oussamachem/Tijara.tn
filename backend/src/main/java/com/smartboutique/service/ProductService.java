@@ -8,6 +8,7 @@ import com.smartboutique.entity.ProductImage;
 import com.smartboutique.entity.ProductVariant;
 import com.smartboutique.entity.Size;
 import com.smartboutique.exception.BusinessException;
+import com.smartboutique.service.storage.ImageStorage;
 import com.smartboutique.exception.DuplicateResourceException;
 import com.smartboutique.exception.ResourceNotFoundException;
 import com.smartboutique.mapper.ProductMapper;
@@ -49,7 +50,7 @@ public class ProductService {
     private final SaleItemRepository saleItemRepository;
     private final ProductMapper productMapper;
     private final VariantSupport variantSupport;
-    private final FileStorageService fileStorageService;
+    private final ImageStorage fileStorageService;
 
     // -------------------------------- Lecture / recherche --------------------------------
 

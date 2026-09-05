@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { shopsApi, notificationsApi } from '../api/endpoints';
 import { apiError } from '../api/client';
@@ -24,6 +24,8 @@ export default function Home() {
   const [tab, setTab] = useState('foryou');            // 'foryou' | 'follows'
   const [unread, setUnread] = useState(0);
   const [followsAll, setFollowsAll] = useState(false);  // « Voir tout » (suivies)
+  const [categories, setCategories] = useState([]);     // noms de catégories globales (marketplace)
+  const [activeCat, setActiveCat] = useState(null);     // catégorie sélectionnée (null = ✨ Pour vous)
   const [loadingShops, setLoadingShops] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [error, setError] = useState('');
@@ -36,6 +38,11 @@ export default function Home() {
       notificationsApi.unreadCount().then(({ data }) => setUnread(data.count || 0)).catch(() => {});
     } else { setFollows([]); setUnread(0); }
   }, [isAuthenticated]);
+
+  // Barre de catégories globales (public, une fois).
+  useEffect(() => {
+    shopsApi.categories().then(({ data }) => setCategories(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
 
   // Annuaire boutiques (recherche serveur, debounce). query='' -> toutes les boutiques actives.
   useEffect(() => {
@@ -69,25 +76,35 @@ export default function Home() {
   return (
     <div className="min-h-full bg-[#FAFAFA]">
       {/* ============================== HEADER (clair, compact) ============================== */}
-      <header className="safe-top sticky top-0 z-20 border-b border-slate-100 bg-white/95 px-4 pb-3 pt-3 backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-extrabold tracking-tight text-slate-900">Smart Boutique</h1>
-            <p className="truncate text-xs text-slate-500">Découvrez et commandez en ligne</p>
-          </div>
-          <button onClick={() => navigate('/notifications')} aria-label="Notifications"
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 active:scale-95">
+      <header className="safe-top sticky top-0 z-20 border-b border-slate-100 bg-white/95 px-3 pb-3 pt-3 backdrop-blur">
+        {/* Une seule rangée : cloche (gauche) · recherche (centre) · favoris (droite). */}
+        <div className="flex items-center gap-2">
+          {/* Gauche — Notifications : compteur RÉEL de non-lus (système existant). */}
+          <button onClick={() => navigate('/notifications')}
+            aria-label={unread > 0 ? `Notifications, ${unread} non lue${unread > 1 ? 's' : ''}` : 'Notifications'}
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 active:scale-95">
             <BellIcon />
-            {unread > 0 && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />}
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
           </button>
-        </div>
 
-        {/* Recherche (action principale) */}
-        <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
-          <SearchIcon />
-          <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher une boutique, un produit…"
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-800 outline-none placeholder:text-slate-400" />
-          {query && <button onClick={() => setQuery('')} className="text-slate-400 hover:text-slate-600" aria-label="Effacer">✕</button>}
+          {/* Centre — Recherche (large, réutilise la recherche existante). */}
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
+            <SearchIcon />
+            <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher une boutique, un produit…" aria-label="Rechercher une boutique ou un produit"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-slate-800 outline-none placeholder:text-slate-400" />
+            {query && <button onClick={() => setQuery('')} className="shrink-0 text-slate-400 hover:text-slate-600" aria-label="Effacer la recherche">✕</button>}
+          </div>
+
+          {/* Droite — Favoris. */}
+          <button onClick={() => navigate('/favorites')} aria-label="Mes favoris"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-rose-500 transition hover:bg-rose-50 active:scale-95">
+            <HeartIcon />
+          </button>
         </div>
       </header>
 
@@ -143,27 +160,46 @@ export default function Home() {
             )}
           </section>
 
-          {/* --- ✨ Pour vous (produits) --- */}
-          <section className="px-4 pb-10 pt-6">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold tracking-tight text-slate-900">✨ Pour vous</h2>
-              {hasFollows && (
-                <div className="flex gap-2">
-                  <MiniChip active={tab === 'foryou'} onClick={() => setTab('foryou')}>Pour vous</MiniChip>
-                  <MiniChip active={tab === 'follows'} onClick={() => setTab('follows')}>Suivies</MiniChip>
-                </div>
+          {/* --- NOUVEAU : barre de catégories globales (marketplace, façon SHEIN) --- */}
+          {categories.length > 0 && (
+            <section className="px-4 pt-6">
+              <h2 className="mb-3 text-base font-bold tracking-tight text-slate-900">Catégories</h2>
+              <CategoryBar categories={categories} active={activeCat} onSelect={setActiveCat} />
+            </section>
+          )}
+
+          {activeCat ? (
+            /* --- Fil d'une catégorie (cross-boutique, scroll infini) --- */
+            <section className="px-4 pb-10 pt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-bold tracking-tight text-slate-900">{activeCat}</h2>
+                <MiniChip active={false} onClick={() => setActiveCat(null)}>✨ Pour vous</MiniChip>
+              </div>
+              <CategoryFeed category={activeCat} />
+            </section>
+          ) : (
+            /* --- ✨ Pour vous (produits) --- */
+            <section className="px-4 pb-10 pt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-bold tracking-tight text-slate-900">✨ Pour vous</h2>
+                {hasFollows && (
+                  <div className="flex gap-2">
+                    <MiniChip active={tab === 'foryou'} onClick={() => setTab('foryou')}>Pour vous</MiniChip>
+                    <MiniChip active={tab === 'follows'} onClick={() => setTab('follows')}>Suivies</MiniChip>
+                  </div>
+                )}
+              </div>
+              {loadingFeed ? (
+                <Spinner label="Chargement des produits…" />
+              ) : shownFeed.length === 0 ? (
+                <EmptyState icon={tab === 'follows' ? '⭐' : '🛍️'}
+                  title={tab === 'follows' ? 'Aucun produit suivi' : "Rien pour l'instant"}
+                  sub={tab === 'follows' ? 'Vos boutiques suivies n’ont pas de produit disponible.' : 'Les produits des boutiques apparaîtront ici.'} />
+              ) : (
+                <ProductGrid items={shownFeed} />
               )}
-            </div>
-            {loadingFeed ? (
-              <Spinner label="Chargement des produits…" />
-            ) : shownFeed.length === 0 ? (
-              <EmptyState icon={tab === 'follows' ? '⭐' : '🛍️'}
-                title={tab === 'follows' ? 'Aucun produit suivi' : "Rien pour l'instant"}
-                sub={tab === 'follows' ? 'Vos boutiques suivies n’ont pas de produit disponible.' : 'Les produits des boutiques apparaîtront ici.'} />
-            ) : (
-              <ProductGrid items={shownFeed} />
-            )}
-          </section>
+            </section>
+          )}
         </>
       )}
     </div>
@@ -242,12 +278,7 @@ function ProductGrid({ items }) {
           <Link to={`/s/${p.shopSlug}/p/${p.productId}`} state={{ shopName: p.shopName }}
             className="group block overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:shadow-md active:scale-[.99]">
             <div className="aspect-[3/4] w-full overflow-hidden bg-slate-100">
-              {p.imageUrl ? (
-                <img src={p.imageUrl} alt={p.name} loading="lazy" decoding="async"
-                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 text-4xl">🧥</div>
-              )}
+              <ProductThumb src={p.imageUrl} alt={p.name} />
             </div>
             <div className="p-3">
               <div className="line-clamp-1 text-sm font-medium text-slate-900">{p.name}</div>
@@ -266,6 +297,18 @@ function ProductGrid({ items }) {
   );
 }
 
+/** Vignette produit : image OU placeholder — bascule sur le placeholder si l'image manque OU 404 (jamais de trou béant). */
+function ProductThumb({ src, alt }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 text-4xl">🧥</div>;
+  }
+  return (
+    <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setBroken(true)}
+      className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+  );
+}
+
 function MiniChip({ active, onClick, children }) {
   return (
     <button onClick={onClick}
@@ -273,6 +316,98 @@ function MiniChip({ active, onClick, children }) {
         active ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>
       {children}
     </button>
+  );
+}
+
+/* --------------------------- Catégories globales (marketplace) --------------------------- */
+
+// Émojis d'illustration pour les grandes familles (cohérent charte, PAS une copie SHEIN).
+const CATEGORY_EMOJI = {
+  femme: '👗', homme: '👔', enfant: '🧒', fille: '👧', garcon: '👦', bebe: '🍼',
+  robes: '👗', robe: '👗', chaussures: '👟', chaussure: '👟', sacs: '👜', sac: '👜',
+  accessoires: '👜', accessoire: '👜', pull: '🧥', chemise: '👔', pantalon: '👖',
+  jean: '👖', jeans: '👖', foulard: '🧣', sport: '🥾',
+};
+const catKey = (name) => (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const catEmoji = (name) => CATEGORY_EMOJI[catKey(name)] || '🏷️';
+
+/** Barre de catégories : pastilles rondes défilables au doigt (façon SHEIN, charte de l'app). */
+function CategoryBar({ categories, active, onSelect }) {
+  const pills = [{ key: null, label: 'Pour vous', icon: '✨' },
+    ...categories.map((c) => ({ key: c, label: c, icon: catEmoji(c) }))];
+  return (
+    <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-1">
+      {pills.map((p) => {
+        const on = (p.key ?? null) === (active ?? null);
+        return (
+          <button key={p.key ?? '__foryou'} onClick={() => onSelect(p.key)}
+            className="flex w-[68px] shrink-0 flex-col items-center gap-1.5 text-center active:scale-95">
+            <span className={`flex h-[60px] w-[60px] items-center justify-center rounded-full text-2xl transition ${
+              on ? 'bg-slate-900 text-white ring-2 ring-slate-900 ring-offset-2' : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'}`}>
+              {p.icon}
+            </span>
+            <span className={`w-full truncate text-[11px] ${on ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{p.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Fil produits d'UNE catégorie (cross-boutique), avec pagination + scroll infini (IntersectionObserver).
+ * Rendu propre même sans photo (ProductGrid gère le placeholder).
+ */
+function CategoryFeed({ category }) {
+  const [items, setItems] = useState([]);
+  const [page, setPage] = useState(0);
+  const [last, setLast] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const sentinelRef = useRef(null);
+
+  // Reset + 1ère page à chaque changement de catégorie.
+  useEffect(() => {
+    let alive = true;
+    setItems([]); setPage(0); setLast(false); setLoading(true); setError('');
+    shopsApi.categoryProducts(category, 0, 24)
+      .then(({ data }) => { if (!alive) return; setItems(data.content || []); setLast(!!data.last); })
+      .catch((e) => alive && setError(apiError(e)))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [category]);
+
+  const loadMore = useCallback(() => {
+    if (loading || last) return;
+    const next = page + 1;
+    setLoading(true);
+    shopsApi.categoryProducts(category, next, 24)
+      .then(({ data }) => { setItems((prev) => [...prev, ...(data.content || [])]); setPage(next); setLast(!!data.last); })
+      .catch((e) => setError(apiError(e)))
+      .finally(() => setLoading(false));
+  }, [category, page, loading, last]);
+
+  // Sentinel visible -> page suivante.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return undefined;
+    const io = new IntersectionObserver((entries) => { if (entries[0].isIntersecting) loadMore(); }, { rootMargin: '400px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loadMore]);
+
+  if (loading && items.length === 0) return <Spinner label="Chargement…" />;
+  if (error && items.length === 0) return <ErrorNote message={error} />;
+  if (items.length === 0) {
+    return <EmptyState icon="🛍️" title="Aucun produit" sub={`Rien de disponible dans « ${category} » pour le moment.`} />;
+  }
+  return (
+    <>
+      <ProductGrid items={items} />
+      <div ref={sentinelRef} className="h-8" />
+      {loading && <div className="flex justify-center py-3"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900" /></div>}
+      {last && <p className="mt-4 text-center text-xs text-slate-400">— fin des résultats —</p>}
+    </>
   );
 }
 
@@ -296,6 +431,13 @@ function BellIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  );
+}
+function HeartIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 21s-7.5-4.35-10-8.5C.5 9.5 2 6 5.5 6c2 0 3.3 1.2 4 2.2C10.2 7.2 11.5 6 13.5 6 17 6 18.5 9.5 22 12.5 19.5 16.65 12 21 12 21Z" />
     </svg>
   );
 }

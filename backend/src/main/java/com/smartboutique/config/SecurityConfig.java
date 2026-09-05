@@ -12,7 +12,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -71,6 +70,12 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/shops").authenticated()
                         // Annuaire + catalogue = PUBLIC (lecture, resolution du tenant par le slug).
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
+                        // Marketplace globale (barre de categories + fil cross-boutique) = PUBLIC (lecture,
+                        // champs safe uniquement). Meme nature que le fil /api/shops/feed.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/marketplace/**").permitAll()
+                        // Page de partage social (Open Graph) d'un produit = PUBLIC (HTML + og:* safe).
+                        // Le crawler Facebook/WhatsApp doit pouvoir la lire sans authentification.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/s/*/produit/*").permitAll()
                         // Espace PLATEFORME : moderation des boutiques reservee a l'admin plateforme.
                         // (Plus specifique -> declare AVANT la regle generale /api/admin/**.)
                         .requestMatchers("/api/admin/boutiques/**").hasRole("PLATFORM_ADMIN")
@@ -97,12 +102,6 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
-    }
-
-    /** Encodeur BCrypt utilise pour le hachage et la verification des mots de passe. */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
     }
 
     @Bean

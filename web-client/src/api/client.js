@@ -1,29 +1,25 @@
 import axios from 'axios';
-
-export const TOKEN_KEY = 'sbc_token';
-export const USER_KEY = 'sbc_user';
+import { keycloak, freshToken } from '../auth/keycloak.js';
 
 // Build derriere nginx : VITE_API_URL="" -> baseURL relative (meme origine, proxy /api).
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
 });
 
-client.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY);
+// Intercepteur ASYNCHRONE : access token Keycloak FRAIS (rafraîchi s'il expire dans < 30 s).
+client.interceptors.request.use(async (config) => {
+  const token = await freshToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// 401 sur un appel authentifie (hors /auth) = session expiree -> purge + retour connexion.
+// 401 sur un appel authentifié = session Keycloak expirée -> retour page de connexion Keycloak.
 client.interceptors.response.use(
   (r) => r,
   (error) => {
-    const status = error.response?.status;
-    const url = error.config?.url || '';
-    const hadToken = !!localStorage.getItem(TOKEN_KEY);
-    if (status === 401 && hadToken && !url.includes('/api/auth/')) {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+    if (error.response?.status === 401 && keycloak.authenticated) {
+      keycloak.clearToken();
+      keycloak.login({ redirectUri: window.location.origin + '/' });
     }
     return Promise.reject(error);
   }

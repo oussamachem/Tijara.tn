@@ -99,7 +99,8 @@ export default function CreditDetail() {
       </Card>
 
       <Card title="Articles">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="text-left text-slate-500">
               <th className="pb-2">Produit</th><th className="pb-2">Référence</th>
@@ -118,6 +119,7 @@ export default function CreditDetail() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -125,7 +127,8 @@ export default function CreditDetail() {
           {credit.payments.length === 0 ? (
             <p className="text-sm text-slate-400">Aucun paiement.</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-sm">
               <thead><tr className="text-left text-slate-500"><th className="pb-2">Date</th><th className="pb-2">Mode</th><th className="pb-2 text-right">Montant</th></tr></thead>
               <tbody>
                 {credit.payments.map((p) => (
@@ -137,6 +140,7 @@ export default function CreditDetail() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
 

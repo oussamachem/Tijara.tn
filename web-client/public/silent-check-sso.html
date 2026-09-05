@@ -1,0 +1,9 @@
+<!doctype html>
+<html>
+<body>
+<script>
+  // Point de retour du contrôle SSO silencieux de keycloak-js (iframe caché).
+  parent.postMessage(location.href, location.origin);
+</script>
+</body>
+</html>

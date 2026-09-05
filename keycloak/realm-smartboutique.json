@@ -1,0 +1,56 @@
+{
+  "realm": "smartboutique",
+  "enabled": true,
+  "displayName": "Smart Boutique",
+  "displayNameHtml": "Smart Boutique",
+  "loginTheme": "smartboutique",
+  "internationalizationEnabled": true,
+  "defaultLocale": "fr",
+  "supportedLocales": ["fr", "en"],
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "verifyEmail": false,
+  "accessTokenLifespan": 900,
+  "roles": {
+    "realm": [
+      { "name": "admin",    "description": "Administrateur plateforme (gestion des boutiques)" },
+      { "name": "vendeur",  "description": "Vendeur d'une boutique" },
+      { "name": "caissier", "description": "Caissier (caisse / ventes)" },
+      { "name": "client",   "description": "Client de la marketplace" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "smartboutique-web",
+      "name": "Smart Boutique — Web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "fullScopeAllowed": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@smartboutique.com",
+      "email": "admin@smartboutique.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "Plateforme",
+      "credentials": [ { "type": "password", "value": "Admin@123", "temporary": false } ],
+      "realmRoles": ["admin", "client"]
+    }
+  ]
+}

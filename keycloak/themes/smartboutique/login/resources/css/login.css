@@ -1,0 +1,341 @@
+/* =====================================================================================
+   Smart Boutique — thème de connexion Keycloak (moderne)
+   Restyle intégralement la page (login / register / reset password / OTP / erreurs).
+   Palette de marque : indigo #4f46e5. Aucune dépendance externe (polices système).
+   ===================================================================================== */
+
+:root {
+  --sb-brand: #4f46e5;
+  --sb-brand-600: #4f46e5;
+  --sb-brand-500: #6366f1;
+  --sb-brand-700: #4338ca;
+  --sb-ink: #0f172a;
+  --sb-muted: #64748b;
+  --sb-border: #e2e8f0;
+  --sb-bg-card: #ffffff;
+  --sb-radius: 16px;
+  --sb-radius-sm: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html.sb-html,
+body.sb-body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body.sb-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--sb-ink);
+  -webkit-font-smoothing: antialiased;
+  /* Fond : dégradé indigo profond + halos radiaux doux (effet « mesh »). */
+  background-color: #1e1b4b;
+  background-image:
+    radial-gradient(1000px 600px at 12% -10%, rgba(99, 102, 241, 0.55), transparent 60%),
+    radial-gradient(900px 600px at 110% 10%, rgba(79, 70, 229, 0.45), transparent 55%),
+    radial-gradient(800px 800px at 50% 120%, rgba(67, 56, 202, 0.5), transparent 60%),
+    linear-gradient(160deg, #312e81 0%, #1e1b4b 55%, #0b1020 100%);
+  background-attachment: fixed;
+}
+
+/* Conteneur de page (flex, gère le centrage vertical et l'espace pour le header de marque). */
+.sb-login {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* -------- En-tête de marque (au-dessus de la carte) -------- */
+#kc-header {
+  width: 100%;
+  text-align: center;
+}
+#kc-header-wrapper {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #ffffff;
+  padding: 0;
+  line-height: 1.2;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.25);
+}
+/* Pastille logo générée avant le titre du realm. */
+#kc-header-wrapper::before {
+  content: "🛍️";
+  display: block;
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+/* -------- Carte -------- */
+.card-pf,
+#kc-content,
+.login-pf-page .card-pf {
+  width: 100%;
+}
+.card-pf {
+  background: var(--sb-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--sb-radius);
+  padding: 30px 28px 26px;
+  box-shadow:
+    0 10px 30px rgba(2, 6, 23, 0.35),
+    0 2px 8px rgba(2, 6, 23, 0.2);
+  margin: 0;
+}
+
+/* Titre de la page (Se connecter / Créer un compte / …) */
+#kc-page-title {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--sb-ink);
+  text-align: center;
+}
+#kc-content-wrapper { margin-top: 14px; }
+
+/* Sélecteur d'utilisateur déjà connecté (reset password / re-auth) */
+#kc-username {
+  text-align: center;
+  color: var(--sb-muted);
+  margin-bottom: 10px;
+}
+
+/* -------- Champs de formulaire -------- */
+.form-group { margin-bottom: 16px; }
+
+label,
+.control-label,
+.pf-c-form__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+.form-control,
+.pf-c-form-control {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 15px;
+  color: var(--sb-ink);
+  background: #f8fafc;
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius-sm);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+input::placeholder { color: #94a3b8; }
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+.form-control:focus,
+.pf-c-form-control:focus {
+  background: #ffffff;
+  border-color: var(--sb-brand-500);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+/* Champ mot de passe avec bouton « afficher » (Keycloak insère un wrapper) */
+.pf-c-input-group { display: flex; }
+.pf-c-input-group input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.pf-c-input-group .pf-c-button {
+  border: 1px solid var(--sb-border);
+  border-left: 0;
+  border-top-right-radius: var(--sb-radius-sm);
+  border-bottom-right-radius: var(--sb-radius-sm);
+  background: #f1f5f9;
+  color: var(--sb-muted);
+  padding: 0 12px;
+}
+
+/* -------- Options (remember me / mot de passe oublié) -------- */
+#kc-form-options,
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--sb-muted);
+  margin: 4px 0 2px;
+}
+#kc-form-options .checkbox label { font-weight: 500; margin: 0; }
+input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--sb-brand-600); }
+
+.login-pf-settings {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* -------- Boutons -------- */
+.btn,
+input[type="submit"],
+.pf-c-button {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: var(--sb-radius-sm);
+  transition: transform 0.05s, box-shadow 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.btn-primary,
+input[type="submit"].btn-primary,
+#kc-login,
+.pf-c-button.pf-m-primary {
+  width: 100%;
+  height: 46px;
+  border: 0;
+  color: #ffffff;
+  background: linear-gradient(180deg, var(--sb-brand-500) 0%, var(--sb-brand-600) 100%);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+}
+.btn-primary:hover,
+#kc-login:hover,
+.pf-c-button.pf-m-primary:hover {
+  background: linear-gradient(180deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 100%);
+}
+.btn-primary:active,
+#kc-login:active { transform: translateY(1px); }
+
+.btn-block { display: block; width: 100%; }
+
+/* Boutons secondaires / liens d'action (annuler, retour) */
+.btn-default,
+.pf-c-button.pf-m-secondary {
+  width: 100%;
+  height: 44px;
+  background: #ffffff;
+  color: var(--sb-brand-600);
+  border: 1px solid var(--sb-border);
+  margin-top: 10px;
+}
+.btn-default:hover { background: #f8fafc; }
+
+.kc-form-buttons,
+#kc-form-buttons { margin-top: 18px; }
+
+/* -------- Liens (créer un compte, mot de passe oublié, retour connexion) -------- */
+a { color: var(--sb-brand-600); text-decoration: none; font-weight: 600; }
+a:hover { text-decoration: underline; }
+
+#kc-info,
+#kc-registration,
+#kc-registration-container {
+  text-align: center;
+  font-size: 14px;
+  color: var(--sb-muted);
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+#kc-info span { color: var(--sb-muted); font-weight: 500; }
+
+/* -------- Connexions sociales (IdP) -------- */
+.kc-social-links { margin-top: 16px; list-style: none; padding: 0; display: grid; gap: 8px; }
+.kc-social-provider-name { font-weight: 600; }
+#kc-social-providers a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius-sm);
+  color: var(--sb-ink);
+  background: #ffffff;
+}
+#kc-social-providers a:hover { background: #f8fafc; text-decoration: none; }
+
+/* -------- Messages / alertes -------- */
+.alert,
+.pf-c-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: var(--sb-radius-sm);
+  padding: 12px 14px;
+  font-size: 14px;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.alert-error,
+.pf-c-alert.pf-m-danger,
+.pf-c-alert.pf-m-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.alert-success,
+.pf-c-alert.pf-m-success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+.alert-warning,
+.pf-c-alert.pf-m-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.alert-info,
+.pf-c-alert.pf-m-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+/* Erreur sous un champ */
+.pf-c-form__helper-text.pf-m-error,
+#input-error,
+.input-error,
+.kc-feedback-text {
+  color: #dc2626;
+  font-size: 12.5px;
+  margin-top: 6px;
+  display: block;
+}
+input[aria-invalid="true"],
+.pf-c-form-control.pf-m-error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2);
+}
+
+/* -------- Pied de page -------- */
+#kc-info-wrapper { font-size: 13px; }
+
+/* Icône langue (si activée) */
+#kc-locale { position: absolute; top: 16px; right: 16px; }
+#kc-locale a { color: rgba(255, 255, 255, 0.85); font-weight: 500; }
+
+/* -------- Responsive -------- */
+@media (max-width: 480px) {
+  body.sb-body { padding: 16px; align-items: flex-start; }
+  .sb-login { max-width: 100%; margin-top: 24px; }
+  .card-pf { padding: 24px 20px; }
+  #kc-header-wrapper { font-size: 20px; }
+  #kc-header-wrapper::before { font-size: 36px; }
+}

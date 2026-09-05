@@ -105,6 +105,7 @@ public class GoodexService {
         form.put("remarque", o.getReference());
         form.put("echange", "0");
         form.put("decharge", "0");
+        form.put("last_statut", "12");   // statut initial « En attente » (champ exigé par l'API Goodex)
 
         JsonNode res = postForm(base + "/api/v1/colis/create", form);
         String ean = res.path("ean").asText(null);

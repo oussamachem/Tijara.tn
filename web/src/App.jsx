@@ -3,9 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { useShop } from './context/ShopContext.jsx';
 import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
-import ForgotPassword from './pages/ForgotPassword.jsx';
-import ResetPassword from './pages/ResetPassword.jsx';
 import Profile from './pages/Profile.jsx';
 
 // Code-split : chaque espace est un bundle séparé, chargé à la demande selon le rôle actif.
@@ -58,11 +55,11 @@ function ProfileRoute() {
 export default function App() {
   return (
     <Routes>
-      {/* Public (identité) */}
+      {/* Public (identité). Inscription / mot de passe oublié sont gérés par Keycloak (page SSO). */}
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/register" element={<Navigate to="/login" replace />} />
+      <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+      <Route path="/reset-password" element={<Navigate to="/login" replace />} />
 
       {/* Profil (partagé, tous rôles) — accessible authentifié, hors espaces. */}
       <Route path="/profile" element={<ProfileRoute />} />
